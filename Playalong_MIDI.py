@@ -92,6 +92,51 @@ class MusicTheory:
             if 0 <= note <= 127:
                 chord_notes.append(note)
         return chord_notes
+    
+    @staticmethod
+    def generate_chord_progression(scale: List[int], scale_degrees: List[int], chord_type: str = "maj") -> List[List[int]]:
+        """
+        Generates a chord progression based on scale degrees.
+        Uses modulo arithmetic to handle out-of-bound scale degrees.
+        
+        Args:
+            scale: List of MIDI notes in the scale
+            scale_degrees: List of scale degrees (1-based index)
+            chord_type: Type of chord to generate for each scale degree
+            
+        Returns:
+            List of chord note lists
+        """
+        if not scale:
+            logging.warning("Cannot generate chord progression: Empty scale provided")
+            return []
+            
+        if not scale_degrees:
+            logging.warning("Cannot generate chord progression: No scale degrees provided")
+            return []
+            
+        progression = []
+        for degree in scale_degrees:
+            # Convert 1-based index to 0-based
+            degree_index = degree - 1
+            
+            # Wrap scale degree using modulo arithmetic to handle out-of-bound degrees
+            if degree_index >= len(scale) or degree_index < 0:
+                original_degree = degree
+                degree_index = degree_index % len(scale)
+                logging.warning(
+                    f"Scale degree {original_degree} is out of bounds for scale with length {len(scale)}. "
+                    f"Wrapped to degree {degree_index + 1} using modulo."
+                )
+                
+            # Get the root note for this chord from the scale
+            chord_root = scale[degree_index]
+            
+            # Generate the chord
+            chord = MusicTheory.generate_chord(chord_root, chord_type)
+            progression.append(chord)
+            
+        return progression
 
 
 # --- Falling Note Class ---
