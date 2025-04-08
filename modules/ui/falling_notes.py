@@ -151,21 +151,20 @@ class FallingNote:
             screen.blit(label, (label_x, label_y))
         
         # Draw hit/miss indicator
-        if self.hit:
-            if self.timing_error_ms is not None:
-                # Show timing accuracy
-                if abs(self.timing_error_ms) < 50:
-                    text = "Perfect!"
-                    text_color = (50, 255, 50)
-                elif abs(self.timing_error_ms) < 100:
-                    text = "Good"
-                    text_color = (180, 255, 50)
-                else:
-                    text = "OK"
-                    text_color = (255, 255, 50)
-                
-                timing_label = font.render(text, True, text_color)
-                screen.blit(timing_label, (note_x + note_width + 5, self.target_y))
+        if self.hit and self.timing_error_ms is not None:
+            if abs(self.timing_error_ms) < 50:
+                text = "Perfect!"
+                text_color = (50, 255, 50)
+            elif abs(self.timing_error_ms) < 100:
+                text = "Good"
+                text_color = (180, 255, 50)
+            else:
+                text = "OK"
+                text_color = (255, 255, 50)
+
+            timing_label = font.render(text, True, text_color)
+            screen.blit(timing_label, (note_x + note_width + 5, self.target_y))
+
     
     def check_hit(self, played_note: int, play_time_ms: int) -> bool:
         """Check if this note was hit correctly.
