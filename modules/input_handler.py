@@ -220,8 +220,11 @@ class InputHandler:
         
         # Check if there are any MIDI events
         if self.midi_input.poll():
-            # Read all pending MIDI events
-            midi_events = self.midi_input.read(32)  # Read up to 32 events
+            # Read all pending MIDI events in bursts
+            event_limit = getattr(self, "max_midi_events", 32)
+            midi_events = []
+            while self.midi_input.poll():
+                midi_events.extend(self.midi_input.read(event_limit))
             
             for event in midi_events:
                 data = event[0]
