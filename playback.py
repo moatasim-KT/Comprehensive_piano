@@ -118,6 +118,107 @@ class PianoVisualizer:
         octave = (note - 12) // 12
         return f"{note_name}{octave}"
 
+    def _load_midi_file(self):
+        """Open a dialog to select and load a MIDI file"""
+        current_dir = os.getcwd()
+        self.status_message = "Select a MIDI file to load"
+        midi_dir = os.path.join(current_dir, "Midi_files")
+        if not os.path.exists(midi_dir):
+            os.makedirs(midi_dir)
+            self.status_message = f"Created MIDI directory at {midi_dir}"
+
+        midi_files = [f for f in os.listdir(midi_dir) if f.lower().endswith(('.mid', '.midi'))]
+        if not midi_files:
+            self.status_message = "No MIDI files found in the 'Midi_files' directory"
+            return
+
+        selection_surface, file_rects, selection_pos = self._build_midi_selection_dialog(midi_files)
+        selected_file = self._run_midi_selection_loop(selection_surface, file_rects, selection_pos)
+
+        if selected_file:
+            midi_path = os.path.join(midi_dir, selected_file)
+            self.load_midi_file(midi_path)
+
+    def _build_midi_selection_dialog(self, midi_files):
+        """
+        Create the dialog surface for MIDI file selection.
+        
+        Args:
+            midi_files: List of MIDI file names
+            
+        Returns:
+            Tuple containing:
+            - selection_surface: The rendered dialog surface
+            - file_rects: List of (rect, filename) tuples for click detection
+            - selection_pos: (x, y) position of the dialog on screen
+        """
+        # Calculate dimensions
+        selection_width = 500
+        selection_height = len(midi_files) * 30 + 60
+        selection_x = (self.width - selection_width) // 2
+        selection_y = (self.height - selection_height) // 2
+
+        # Create selection surface
+        selection_surface = pygame.Surface((selection_width, selection_height))
+        selection_surface.fill((240, 240, 240))
+        title_text = self.title_font.render("Select a MIDI file", True, (0, 0, 0))
+        selection_surface.blit(title_text, ((selection_width - title_text.get_width()) // 2, 10))
+
+        # Create file options
+        file_rects = []
+        for i, file_name in enumerate(midi_files):
+            file_rect = pygame.Rect(20, 50 + i * 30, selection_width - 40, 25)
+            file_rects.append((file_rect, file_name))
+            pygame.draw.rect(selection_surface, (220, 220, 220), file_rect)
+            pygame.draw.rect(selection_surface, (0, 0, 0), file_rect, 1)
+            file_text = self.font.render(file_name, True, (0, 0, 0))
+            selection_surface.blit(file_text, (file_rect.x + 10, file_rect.y + 2))
+        
+        return selection_surface, file_rects, (selection_x, selection_y)
+
+    def _run_midi_selection_loop(self, selection_surface, file_rects, selection_pos):
+        """
+        Run the event loop for MIDI file selection dialog.
+        
+        Args:
+            selection_surface: The rendered dialog surface
+            file_rects: List of (rect, filename) tuples for click detection
+            selection_pos: (x, y) position of the dialog on screen
+            
+        Returns:
+            Selected filename or None if canceled
+        """
+        selection_active = True
+        selected_file = None
+        selection_x, selection_y = selection_pos
+        
+        clock = pygame.time.Clock()
+        
+        while selection_active:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    selection_active = False
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    mouse_pos = pygame.mouse.get_pos()
+                    rel_pos = (mouse_pos[0] - selection_x, mouse_pos[1] - selection_y)
+                    for rect, file_name in file_rects:
+                        if rect.collidepoint(rel_pos):
+                            selected_file = file_name
+                            selection_active = False
+                            break
+
+            # Draw current screen elements
+            self.screen.fill((240, 240, 250))
+            self.draw_piano()
+            self.screen.blit(selection_surface, selection_pos)
+            pygame.display.flip()
+            clock.tick(60)
+
+        return selected_file
+
     def load_midi_file(self, file_path):
         """Load and parse MIDI file"""
         try:
