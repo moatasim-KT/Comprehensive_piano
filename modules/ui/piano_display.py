@@ -165,9 +165,9 @@ class PianoDisplay:
         """
         # Check black keys first (they're on top)
         for note in range(self.first_note, self.first_note + self.total_keys):
-            if is_black_key(note) and note in self.key_rects:
-                if self.key_rects[note].collidepoint(x, y):
-                    return note
+            if is_black_key(note) and note in self.key_rects and self.key_rects[note].collidepoint(x, y):
+                return note
+
         
         # Then check white keys
         for note in range(self.first_note, self.first_note + self.total_keys):
