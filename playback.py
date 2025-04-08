@@ -133,9 +133,9 @@ class PianoVisualizer:
             return
 
         selection_surface, file_rects, selection_pos = self._build_midi_selection_dialog(midi_files)
-        selected_file = self._run_midi_selection_loop(selection_surface, file_rects, selection_pos)
-
-        if selected_file:
+        if selected_file := self._run_midi_selection_loop(
+            selection_surface, file_rects, selection_pos
+        ):
             midi_path = os.path.join(midi_dir, selected_file)
             self.load_midi_file(midi_path)
 
