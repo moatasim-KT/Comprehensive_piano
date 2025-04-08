@@ -371,10 +371,7 @@ class FallingNotesManager:
         Returns:
             Dict: Performance statistics
         """
-        accuracy = 0
-        if self.hit_notes > 0:
-            accuracy = self.accuracy_sum / self.hit_notes
-            
+        accuracy = self.accuracy_sum / self.hit_notes if self.hit_notes > 0 else 0
         return {
             "total_notes": self.total_notes,
             "hit_notes": self.hit_notes,
