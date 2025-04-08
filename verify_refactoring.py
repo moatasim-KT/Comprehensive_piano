@@ -18,11 +18,11 @@ def verify_refactoring():
         # Look for our methods
         methods = set()
         for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef):
-                if node.name in ['_build_midi_selection_dialog', 
-                                '_run_midi_selection_loop', 
-                                '_load_midi_file']:
-                    methods.add(node.name)
+            if isinstance(node, ast.FunctionDef) and node.name in ['_build_midi_selection_dialog', 
+                                            '_run_midi_selection_loop', 
+                                            '_load_midi_file']:
+                methods.add(node.name)
+
         
         # Check if all required methods exist
         required = {'_build_midi_selection_dialog', 
