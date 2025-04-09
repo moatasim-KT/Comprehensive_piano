@@ -115,7 +115,7 @@ class MusicTheory:
             )
             intervals = MusicTheory.CHORD_INTERVALS["maj"]
 
-        num_intervals = len(intervals)
+            num_intervals = len(intervals)
         if inversion > 0:
             if inversion >= num_intervals:
                 logging.warning(
