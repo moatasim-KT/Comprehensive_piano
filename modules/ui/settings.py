@@ -27,6 +27,7 @@ class SettingsUI:
             "hit_window": 200,  # Milliseconds
             "prep_time": 3.0,  # Seconds
             "show_performance_stats": True,
+            "learning_visualization": "both",  # "falling", "highlight", or "both"
         }
         
         # UI elements
@@ -80,6 +81,96 @@ class SettingsUI:
         # Current Y position for layout
         y = self.panel_rect.y + margin
         
+        # Top title for settings
+        font_title = pygame.font.SysFont("Arial", 36, bold=True)
+        title_surface = font_title.render("Settings", True, (0, 0, 0))
+        self.controls["title"] = {
+            "type": "label",
+            "rect": pygame.Rect(
+                self.panel_rect.centerx - title_surface.get_width() // 2, 
+                y, 
+                title_surface.get_width(), 
+                title_surface.get_height()
+            ),
+            "surface": title_surface
+        }
+        y += title_surface.get_height() + margin
+        
+        # Learning Mode Settings
+        # ----------------------
+        self._add_section_title("Learning Mode Settings", y)
+        y += control_height + margin
+        
+        # Learning visualization dropdown
+        self._add_dropdown(
+            "learning_visualization",
+            "Learning Visualization",
+            self.settings["learning_visualization"],
+            [
+                ("falling", "Falling Notes Only"), 
+                ("highlight", "Highlighted Keys Only"), 
+                ("both", "Both Combined")
+            ],
+            x=self.panel_rect.x + margin,
+            y=y,
+            width=300
+        )
+        y += control_height + margin
+        
+        # Show performance stats toggle
+        self._add_toggle(
+            "show_performance_stats",
+            "Show Performance Statistics",
+            self.settings["show_performance_stats"],
+            x=self.panel_rect.x + margin,
+            y=y
+        )
+        y += control_height + margin
+        
+        # Falling speed slider
+        self._add_slider(
+            "falling_speed",
+            "Falling Notes Speed",
+            self.settings["falling_speed"],
+            50, 300,
+            x=self.panel_rect.x + margin,
+            y=y,
+            width=300,
+            formatter=lambda v: f"{int(v)} px/s"
+        )
+        y += control_height + margin
+        
+        # Hit window slider
+        self._add_slider(
+            "hit_window",
+            "Hit Window",
+            self.settings["hit_window"],
+            50, 500,
+            x=self.panel_rect.x + margin,
+            y=y,
+            width=300,
+            formatter=lambda v: f"{int(v)} ms"
+        )
+        y += control_height + margin
+        
+        # Preparation time slider
+        self._add_slider(
+            "prep_time",
+            "Preparation Time",
+            self.settings["prep_time"],
+            1.0, 5.0,
+            x=self.panel_rect.x + margin,
+            y=y,
+            width=300,
+            formatter=lambda v: f"{v:.1f} sec"
+        )
+        y += control_height + section_margin
+        
+        # Audio Settings
+        # -------------
+        self._add_section_title("Audio Settings", y)
+        y += control_height + margin
+        
         # Volume slider
         self._add_slider(
             "volume", 
@@ -91,11 +182,6 @@ class SettingsUI:
             width=300,
             formatter=lambda v: f"{int(v * 100)}%"
         )
-        y += control_height + margin
-        
-        # Audio settings section
-        y += section_margin
-        self._add_section_title("Audio Settings", y)
         y += control_height + margin
         
         # Audio mode toggle
@@ -119,10 +205,10 @@ class SettingsUI:
             width=300,
             formatter=lambda v: f"{int(v * 100)}%"
         )
-        y += control_height + margin
+        y += control_height + section_margin
         
-        # Display settings section
-        y += section_margin
+        # Display Settings
+        # ---------------
         self._add_section_title("Display Settings", y)
         y += control_height + margin
         
@@ -146,77 +232,26 @@ class SettingsUI:
         )
         y += control_height + margin
         
-        # Learning mode section
-        y += section_margin
-        self._add_section_title("Learning Mode", y)
-        y += control_height + margin
-        
         # Difficulty dropdown
         self._add_dropdown(
             "difficulty",
-            "Difficulty",
+            "Difficulty Level",
             self.settings["difficulty"],
-            ["easy", "intermediate", "hard"],
+            [
+                ("easy", "Easy"), 
+                ("intermediate", "Intermediate"), 
+                ("hard", "Hard")
+            ],
             x=self.panel_rect.x + margin,
             y=y,
             width=300
         )
-        y += control_height + margin
+        y += control_height + section_margin
         
-        # Falling speed slider
-        self._add_slider(
-            "falling_speed", 
-            "Note Speed", 
-            self.settings["falling_speed"], 
-            50, 300, 
-            x=self.panel_rect.x + margin,
-            y=y,
-            width=300,
-            formatter=lambda v: f"{int(v)} px/s"
-        )
-        y += control_height + margin
-        
-        # Hit window slider
-        self._add_slider(
-            "hit_window", 
-            "Timing Window", 
-            self.settings["hit_window"], 
-            50, 500, 
-            x=self.panel_rect.x + margin,
-            y=y,
-            width=300,
-            formatter=lambda v: f"{int(v)} ms"
-        )
-        y += control_height + margin
-        
-        # Show performance stats toggle
-        self._add_toggle(
-            "show_performance_stats",
-            "Show Performance Statistics",
-            self.settings["show_performance_stats"],
-            x=self.panel_rect.x + margin,
-            y=y
-        )
-        y += control_height + margin
-        
-        # Close button at the bottom
-        button_width = 120
-        self._add_button(
-            "save_settings",
-            "Save",
-            x=self.panel_rect.x + self.panel_rect.width - button_width - margin,
-            y=self.panel_rect.y + self.panel_rect.height - control_height - margin,
-            width=button_width
-        )
-        
-        # Cancel button
-        self._add_button(
-            "cancel_settings",
-            "Cancel",
-            x=self.panel_rect.x + self.panel_rect.width - 2*button_width - 2*margin,
-            y=self.panel_rect.y + self.panel_rect.height - control_height - margin,
-            width=button_width
-        )
+        # Buttons
+        # -------
+        self._add_button("save_settings", "Save", self.panel_rect.centerx - 130, y)
+        self._add_button("cancel_settings", "Cancel", self.panel_rect.centerx + 10, y)
     
     def _add_section_title(self, title, y):
         """Add a section title to the settings UI.
@@ -333,12 +368,12 @@ class SettingsUI:
         # Draw panel background
         pygame.draw.rect(
             self.screen,
-            (240, 240, 240),
+            (240, 240, 245),
             self.panel_rect
         )
         pygame.draw.rect(
             self.screen,
-            (0, 0, 0),
+            (100, 100, 100),
             self.panel_rect,
             2
         )
@@ -355,62 +390,200 @@ class SettingsUI:
         
         # Draw controls
         for key, control in self.controls.items():
-            control_type = control["type"]
+            control_type = control.get("type", "")
             
-            if control_type == "title":
-                # Draw section title
-                text = self.title_font.render(control["text"], True, (50, 50, 50))
-                self.screen.blit(text, (control["rect"].x, control["rect"].y))
-                
-                # Draw separator line
-                pygame.draw.line(
-                    self.screen,
-                    (200, 200, 200),
-                    (control["rect"].x, control["rect"].y + text.get_height() + 5),
-                    (control["rect"].x + control["rect"].width, control["rect"].y + text.get_height() + 5),
-                    2
-                )
-                
-            elif control_type == "slider":
-                # Draw label
-                label_text = self.font.render(control["label"], True, (0, 0, 0))
-                self.screen.blit(label_text, (control["rect"].x, control["rect"].y - 25))
-                
-                # Draw slider track
+            if control_type == "slider":
+                # Draw slider background
                 pygame.draw.rect(
                     self.screen,
                     (200, 200, 200),
-                    (control["rect"].x, control["rect"].y + 13, control["rect"].width, 4)
+                    control["rect"]
+                )
+                pygame.draw.rect(
+                    self.screen,
+                    (100, 100, 100),
+                    control["rect"],
+                    1
                 )
                 
                 # Draw slider handle
+                handle_x = int(control["rect"].x + (control["value"] - control["min_value"]) / 
+                              (control["max_value"] - control["min_value"]) * control["rect"].width)
+                handle_rect = pygame.Rect(
+                    handle_x - 5, 
+                    control["rect"].y - 5, 
+                    10, 
+                    control["rect"].height + 10
+                )
                 pygame.draw.rect(
                     self.screen,
-                    (50, 50, 200),
-                    control["handle_rect"]
+                    (50, 100, 200),
+                    handle_rect
+                )
+                pygame.draw.rect(
+                    self.screen,
+                    (20, 50, 100),
+                    handle_rect,
+                    1
+                )
+                
+                # Draw label
+                label_text = self.font.render(control["label"], True, (0, 0, 0))
+                self.screen.blit(
+                    label_text, 
+                    (
+                        control["rect"].x, 
+                        control["rect"].y - label_text.get_height() - 5
+                    )
                 )
                 
                 # Draw value
-                value_text = self.font.render(
-                    control["formatter"](control["value"]), 
-                    True, 
-                    (0, 0, 0)
-                )
+                if "formatter" in control:
+                    value_text = control["formatter"](control["value"])
+                else:
+                    value_text = str(control["value"])
+                    
+                value_surface = self.font.render(value_text, True, (0, 0, 0))
                 self.screen.blit(
-                    value_text,
-                    (control["rect"].x + control["rect"].width + 10, control["rect"].y)
+                    value_surface, 
+                    (
+                        control["rect"].x + control["rect"].width + 10, 
+                        control["rect"].y + (control["rect"].height - value_surface.get_height()) // 2
+                    )
                 )
                 
-            elif control_type == "toggle":
+            elif control_type == "dropdown":
+                # Draw dropdown background
+                pygame.draw.rect(
+                    self.screen,
+                    (255, 255, 255),
+                    control["rect"]
+                )
+                pygame.draw.rect(
+                    self.screen,
+                    (100, 100, 100),
+                    control["rect"],
+                    1
+                )
+                
                 # Draw label
                 label_text = self.font.render(control["label"], True, (0, 0, 0))
-                self.screen.blit(label_text, (control["rect"].x + 40, control["rect"].y + 5))
+                self.screen.blit(
+                    label_text, 
+                    (
+                        control["rect"].x, 
+                        control["rect"].y - label_text.get_height() - 5
+                    )
+                )
                 
+                # Get the current value to display
+                current_value = control["value"]
+                display_text = current_value  # Default
+
+                # If options are tuples (value, display_text), find the display text for the current value
+                for option in control["options"]:
+                    if isinstance(option, tuple) and len(option) == 2:
+                        if option[0] == current_value:
+                            display_text = option[1]
+                            break
+                
+                # Draw current value
+                value_text = self.font.render(display_text, True, (0, 0, 0))
+                self.screen.blit(
+                    value_text, 
+                    (
+                        control["rect"].x + 10, 
+                        control["rect"].y + (control["rect"].height - value_text.get_height()) // 2
+                    )
+                )
+                
+                # Draw dropdown arrow
+                arrow_rect = pygame.Rect(
+                    control["rect"].x + control["rect"].width - 20,
+                    control["rect"].y + 5,
+                    15,
+                    control["rect"].height - 10
+                )
+                pygame.draw.polygon(
+                    self.screen,
+                    (50, 50, 50),
+                    [
+                        (arrow_rect.x, arrow_rect.y),
+                        (arrow_rect.x + arrow_rect.width, arrow_rect.y),
+                        (arrow_rect.x + arrow_rect.width // 2, arrow_rect.y + arrow_rect.height)
+                    ]
+                )
+                
+                # Draw dropdown list if open
+                if control.get("open", False):
+                    # Calculate dropdown list height
+                    list_height = len(control["options"]) * 30
+                    list_rect = pygame.Rect(
+                        control["rect"].x,
+                        control["rect"].y + control["rect"].height,
+                        control["rect"].width,
+                        list_height
+                    )
+                    
+                    # Draw list background
+                    pygame.draw.rect(
+                        self.screen,
+                        (255, 255, 255),
+                        list_rect
+                    )
+                    pygame.draw.rect(
+                        self.screen,
+                        (100, 100, 100),
+                        list_rect,
+                        1
+                    )
+                    
+                    # Draw options
+                    for i, option in enumerate(control["options"]):
+                        option_rect = pygame.Rect(
+                            list_rect.x,
+                            list_rect.y + i * 30,
+                            list_rect.width,
+                            30
+                        )
+                        
+                        # Highlight selected option
+                        option_value = option[0] if isinstance(option, tuple) and len(option) == 2 else option
+                        option_display = option[1] if isinstance(option, tuple) and len(option) == 2 else option
+                        
+                        if option_value == control["value"]:
+                            pygame.draw.rect(
+                                self.screen,
+                                (200, 220, 255),
+                                option_rect
+                            )
+                            
+                        # Draw option text
+                        option_text = self.font.render(option_display, True, (0, 0, 0))
+                        self.screen.blit(
+                            option_text,
+                            (
+                                option_rect.x + 10,
+                                option_rect.y + (option_rect.height - option_text.get_height()) // 2
+                            )
+                        )
+                
+            elif control_type == "toggle":
                 # Draw toggle box
                 pygame.draw.rect(
                     self.screen,
                     (50, 50, 200) if control["value"] else (200, 200, 200),
                     control["rect"]
+                )
+                
+                # Draw label
+                label_text = self.font.render(control["label"], True, (0, 0, 0))
+                self.screen.blit(
+                    label_text,
+                    (
+                        control["rect"].x + 40,
+                        control["rect"].y + 5
+                    )
                 )
                 
                 # Draw checkmark if enabled
@@ -429,77 +602,6 @@ class SettingsUI:
                         2
                     )
                 
-            elif control_type == "dropdown":
-                # Draw label
-                label_text = self.font.render(control["label"], True, (0, 0, 0))
-                self.screen.blit(label_text, (control["rect"].x, control["rect"].y - 25))
-                
-                # Draw dropdown box
-                pygame.draw.rect(
-                    self.screen,
-                    (255, 255, 255),
-                    control["rect"]
-                )
-                pygame.draw.rect(
-                    self.screen,
-                    (0, 0, 0),
-                    control["rect"],
-                    1
-                )
-                
-                # Draw selected value
-                value_text = self.font.render(control["value"], True, (0, 0, 0))
-                self.screen.blit(
-                    value_text,
-                    (control["rect"].x + 10, control["rect"].y + 5)
-                )
-                
-                # Draw dropdown arrow
-                arrow_points = [
-                    (control["rect"].x + control["rect"].width - 20, control["rect"].y + 10),
-                    (control["rect"].x + control["rect"].width - 10, control["rect"].y + 10),
-                    (control["rect"].x + control["rect"].width - 15, control["rect"].y + 20)
-                ]
-                pygame.draw.polygon(
-                    self.screen,
-                    (0, 0, 0),
-                    arrow_points
-                )
-                
-                # If expanded, draw options
-                if control["expanded"]:
-                    options_height = len(control["options"]) * 30
-                    # Draw options background
-                    pygame.draw.rect(
-                        self.screen,
-                        (255, 255, 255),
-                        (control["rect"].x, control["rect"].y + 30, control["rect"].width, options_height)
-                    )
-                    pygame.draw.rect(
-                        self.screen,
-                        (0, 0, 0),
-                        (control["rect"].x, control["rect"].y + 30, control["rect"].width, options_height),
-                        1
-                    )
-                    
-                    # Draw each option
-                    for i, option in enumerate(control["options"]):
-                        option_rect = control["option_rects"][i]
-                        # Highlight if hovered
-                        if option == control["value"]:
-                            pygame.draw.rect(
-                                self.screen,
-                                (220, 220, 255),
-                                option_rect
-                            )
-                        
-                        # Draw option text
-                        option_text = self.font.render(option, True, (0, 0, 0))
-                        self.screen.blit(
-                            option_text,
-                            (option_rect.x + 10, option_rect.y + 5)
-                        )
-                
             elif control_type == "button":
                 # Draw button
                 pygame.draw.rect(
@@ -517,6 +619,9 @@ class SettingsUI:
                         control["rect"].y + (control["rect"].height - label_text.get_height()) // 2
                     )
                 )
+                
+            elif control_type == "label":
+                self.screen.blit(control["surface"], control["rect"])
     
     def handle_event(self, event):
         """Handle pygame events for the settings UI.
@@ -525,22 +630,22 @@ class SettingsUI:
             event: Pygame event
             
         Returns:
-            bool: True if the event was handled, False otherwise
+            bool: True if event was handled, False otherwise
         """
         if not self.active:
             return False
             
-        # Mouse click
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            pos = event.pos
+            pos = pygame.mouse.get_pos()
             
-            # Check each control
+            # Check if clicked on a control
             for key, control in self.controls.items():
-                control_type = control["type"]
+                control_type = control.get("type", "")
                 
                 if control_type == "slider" and control["rect"].collidepoint(pos):
                     # Start dragging slider
                     control["dragging"] = True
+                    # Update slider value immediately
                     self._update_slider_value(key, pos[0])
                     return True
                     
@@ -552,21 +657,46 @@ class SettingsUI:
                     
                 elif control_type == "dropdown" and control["rect"].collidepoint(pos):
                     # Toggle dropdown expansion
-                    control["expanded"] = not control["expanded"]
+                    control["open"] = not control.get("open", False)
                     return True
                     
-                elif control_type == "dropdown" and control["expanded"]:
+                elif control_type == "dropdown" and control.get("open", False):
                     # Check if clicked on an option
-                    for i, option_rect in enumerate(control["option_rects"]):
-                        if option_rect.collidepoint(pos):
-                            control["value"] = control["options"][i]
-                            control["expanded"] = False
+                    # Calculate dropdown list height
+                    list_height = len(control["options"]) * 30
+                    list_rect = pygame.Rect(
+                        control["rect"].x,
+                        control["rect"].y + control["rect"].height,
+                        control["rect"].width,
+                        list_height
+                    )
+                    
+                    if list_rect.collidepoint(pos):
+                        # Calculate which option was clicked
+                        option_index = (pos[1] - list_rect.y) // 30
+                        if 0 <= option_index < len(control["options"]):
+                            option = control["options"][option_index]
+                            # If option is a tuple, use first element as value
+                            if isinstance(option, tuple) and len(option) == 2:
+                                control["value"] = option[0]
+                            else:
+                                control["value"] = option
+                                
+                            control["open"] = False
                             self._apply_dropdown_setting(key)
                             return True
+                    else:
+                        # Close dropdown if clicked outside
+                        control["open"] = False
                     
                 elif control_type == "button" and control["rect"].collidepoint(pos):
                     # Handle button click
-                    self._handle_button_click(key)
+                    if key == "save_settings":
+                        self._save_settings()
+                        self.hide()
+                    elif key == "cancel_settings":
+                        self._load_settings()  # Restore original settings
+                        self.hide()
                     return True
             
             # If clicked outside any control, but on the panel, eat the event
@@ -579,7 +709,7 @@ class SettingsUI:
             
         # Mouse movement with button down
         elif event.type == pygame.MOUSEMOTION and event.buttons[0]:
-            pos = event.pos
+            pos = pygame.mouse.get_pos()
             
             # Update dragging sliders
             for key, control in self.controls.items():
@@ -645,6 +775,8 @@ class SettingsUI:
             self.settings["falling_speed"] = control["value"]
         elif key == "hit_window":
             self.settings["hit_window"] = control["value"]
+        elif key == "prep_time":
+            self.settings["prep_time"] = control["value"]
             
         # Notify about changed settings
         if self.settings_changed_callback:
@@ -681,6 +813,8 @@ class SettingsUI:
         
         if key == "difficulty":
             self.settings["difficulty"] = control["value"]
+        elif key == "learning_visualization":
+            self.settings["learning_visualization"] = control["value"]
             
         # Notify about changed settings
         if self.settings_changed_callback:
@@ -758,3 +892,55 @@ class SettingsUI:
         # Special case for audio mode toggle
         if key == "audio_mode" and "audio_mode_samples" in self.controls:
             self.controls["audio_mode_samples"]["value"] = (value == "samples")
+
+    def _save_settings(self):
+        """Save settings and notify the callback."""
+        # Since we've been updating self.settings as changes are made,
+        # we just need to notify the callback
+        if self.settings_changed_callback:
+            self.settings_changed_callback(self.settings)
+            
+    def _load_settings(self):
+        """Reload settings from the original values."""
+        # Reset local settings to their original values
+        # Note: This assumes that settings_changed_callback can provide the original settings
+        if self.settings_changed_callback:
+            # Trigger a reload from the parent component
+            self.settings_changed_callback(None, reload=True)
+            
+    def reload_settings(self, settings):
+        """Reload settings from the provided values.
+        
+        Args:
+            settings (dict): Settings to load
+        """
+        if not settings:
+            return
+            
+        # Update settings
+        self.settings = settings.copy()
+        
+        # Update UI control values to match settings
+        for key, control in self.controls.items():
+            if key == "volume" and control["type"] == "slider":
+                control["value"] = self.settings["volume"]
+            elif key == "reverb_amount" and control["type"] == "slider":
+                control["value"] = self.settings["reverb_amount"]
+            elif key == "show_note_names" and control["type"] == "toggle":
+                control["value"] = self.settings["show_note_names"]
+            elif key == "show_octave_markers" and control["type"] == "toggle":
+                control["value"] = self.settings["show_octave_markers"]
+            elif key == "audio_mode_samples" and control["type"] == "toggle":
+                control["value"] = (self.settings["audio_mode"] == "samples")
+            elif key == "difficulty" and control["type"] == "dropdown":
+                control["value"] = self.settings["difficulty"]
+            elif key == "falling_speed" and control["type"] == "slider":
+                control["value"] = self.settings["falling_speed"]
+            elif key == "hit_window" and control["type"] == "slider":
+                control["value"] = self.settings["hit_window"]
+            elif key == "prep_time" and control["type"] == "slider":
+                control["value"] = self.settings["prep_time"]
+            elif key == "show_performance_stats" and control["type"] == "toggle":
+                control["value"] = self.settings["show_performance_stats"]
+            elif key == "learning_visualization" and control["type"] == "dropdown":
+                control["value"] = self.settings["learning_visualization"]

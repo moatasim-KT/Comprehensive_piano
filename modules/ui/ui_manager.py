@@ -5,6 +5,7 @@ Coordinates all UI components and handles mode switching
 import pygame
 import os
 from typing import Dict, List, Tuple, Optional, Any, Callable
+import logging
 
 from modules.ui.piano_display import PianoDisplay
 from modules.ui.falling_notes import FallingNotesManager
@@ -96,7 +97,7 @@ class UIManager:
         self.settings_ui.initialize(self.screen, self.font, self.title_font)
         
         # Set up settings callback
-        self.settings_ui.set_settings_changed_callback(self._apply_settings)
+        self.settings_ui.set_settings_changed_callback(self._settings_changed)
         
         # Apply initial settings
         self._apply_settings()
@@ -106,6 +107,10 @@ class UIManager:
         
         # Set running state
         self.running = True
+        
+        # Set default mode to learning (instead of free_play) for testing
+        self.current_mode = "learning"
+        logging.info("Starting in learning mode for testing")
     
     def _create_buttons(self):
         """Create UI buttons for mode switching and controls."""
@@ -274,27 +279,58 @@ class UIManager:
             self.show_popup(f"Error: {str(e)}", 3000)
             
     def _apply_settings(self):
-        """Apply settings to UI components."""
+        """Apply current settings to the UI components."""
+        # Get the current settings
         settings = self.settings_ui.settings
         
-        # Apply piano display settings
+        # Apply them using the settings changed handler
+        self._settings_changed(settings)
+        
+    def _settings_changed(self, settings, reload=False):
+        """Handle settings changes.
+        
+        Args:
+            settings (dict): New settings values
+            reload (bool): If True, reload settings into the settings UI
+        """
+        # If reload is True, we need to reload the original settings back to the settings UI
+        if reload:
+            self.settings_ui.reload_settings(self.settings_ui.settings)
+            return
+            
+        if not settings:
+            return
+            
+        # Apply settings to components
         self.piano_display.show_note_names = settings["show_note_names"]
         self.piano_display.show_octave_markers = settings["show_octave_markers"]
-        self.piano_display.set_key_range(
-            settings["key_range"]["first_note"],
-            settings["key_range"]["total_keys"]
-        )
         
-        # Apply falling notes settings
-        self.falling_notes_manager.falling_speed = settings["falling_speed"]
-        self.falling_notes_manager.hit_window_ms = settings["hit_window"]
+        # Apply key range if it exists
+        if "key_range" in settings:
+            self.piano_display.set_key_range(
+                settings["key_range"]["first_note"],
+                settings["key_range"]["total_keys"]
+            )
+        
+        # Update learning mode settings
+        if self.falling_notes_manager:
+            # Update falling speed
+            self.falling_notes_manager.falling_speed = settings["falling_speed"]
+            
+            # Update hit window
+            self.falling_notes_manager.hit_window_ms = settings["hit_window"]
+            
+            # Apply visualization mode
+            if "learning_visualization" in settings:
+                self.falling_notes_manager.apply_visualization_mode(settings["learning_visualization"])
         
         # Apply performance metrics settings
-        if settings["show_performance_stats"]:
-            self.performance_metrics.show()
-        else:
-            self.performance_metrics.hide()
-            
+        if "show_performance_stats" in settings:
+            if settings["show_performance_stats"]:
+                self.performance_metrics.show()
+            else:
+                self.performance_metrics.hide()
+        
     def show_settings(self):
         """Show the settings UI."""
         self.settings_ui.show()
@@ -453,27 +489,71 @@ class UIManager:
         # Clear screen
         self.screen.fill((240, 240, 250))
         
+        # Get current time in seconds
+        current_time_sec = pygame.time.get_ticks() / 1000.0
+        
         # Draw piano
         self.piano_display.draw()
         
-        # Draw mode-specific components
-        if self.current_mode == "learning" and not self.paused:
+        # Always update and draw falling notes in learning mode, regardless of pause state
+        if self.current_mode == "learning":
             # Get the key rect map from piano display for falling notes positioning
             key_rect_map = self.piano_display.get_all_key_rects()
-            self.falling_notes_manager.update(delta_time, key_rect_map)
-        
-        if self.current_mode == "learning":
-            self.falling_notes_manager.draw(self.screen)
             
-            # Draw target line
-            target_y = self.piano_display.get_target_line_y()
-            pygame.draw.line(
-                self.screen,
-                (255, 100, 100),
-                (0, target_y),
-                (self.width, target_y),
-                2
-            )
+            # Get the visualization mode from settings
+            visualization_mode = self.settings_ui.get_setting("learning_visualization")
+            
+            # Apply visualization mode to falling notes manager
+            self.falling_notes_manager.apply_visualization_mode(visualization_mode)
+            
+            # Just update positions when not paused
+            if not self.paused:
+                self.falling_notes_manager.update(delta_time, key_rect_map)
+            
+            # Handle key highlighting based on visualization mode
+            if visualization_mode in ["highlight", "both"]:
+                # Highlight keys on the piano that have notes about to be played
+                notes_to_highlight = self.falling_notes_manager.get_notes_to_highlight(current_time_sec)
+                
+                # Clear any previous highlighting
+                self.piano_display.clear_highlighted_notes()
+                
+                # Apply new highlighting
+                if notes_to_highlight:
+                    self.piano_display.highlight_chord(notes_to_highlight, highlight=True)
+            else:
+                # Clear any highlighting if it's not enabled
+                self.piano_display.clear_highlighted_notes()
+                
+            # Draw falling notes if that visualization is enabled
+            if visualization_mode in ["falling", "both"]:
+                # Always draw falling notes
+                self.falling_notes_manager.draw(self.screen)
+                
+                # Draw target line with high visibility
+                target_y = self.piano_display.get_target_line_y()
+                pygame.draw.line(
+                    self.screen,
+                    (255, 0, 0),  # Bright red
+                    (0, target_y),
+                    (self.screen.get_width(), target_y),
+                    3  # Thicker line for visibility
+                )
+            
+            # Draw a debug message showing learning mode is active and current visualization
+            font = pygame.font.SysFont("Arial", 18)
+            mode_text = {
+                "falling": "Falling Notes Mode",
+                "highlight": "Highlighted Keys Mode",
+                "both": "Combined Mode (Notes + Highlights)"
+            }
+            debug_text = font.render(f"Learning Mode: {mode_text.get(visualization_mode, 'Unknown')}", True, (0, 0, 0))
+            self.screen.blit(debug_text, (20, 20))
+            
+            # Add another debug message showing how many notes are being highlighted
+            if visualization_mode in ["highlight", "both"] and notes_to_highlight:
+                highlight_text = font.render(f"Highlighting {len(notes_to_highlight)} notes", True, (0, 0, 0))
+                self.screen.blit(highlight_text, (20, 50))
         
         # Draw performance metrics if enabled and in learning mode
         if self.current_mode == "learning" and self.settings_ui.get_setting("show_performance_stats"):
@@ -652,6 +732,16 @@ class UIManager:
         Returns:
             bool: True if in learning mode
         """
+        return self.current_mode == "learning"
+        
+    def toggle_learning_mode(self):
+        """Toggle between learning mode and free play mode."""
+        if self.current_mode == "learning":
+            self.set_mode("free_play")
+            logging.info("Switched to free play mode")
+        else:
+            self.set_mode("learning")
+            logging.info("Switched to learning mode")
         return self.current_mode == "learning"
         
     def get_target_line_y(self):

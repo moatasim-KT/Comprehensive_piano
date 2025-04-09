@@ -16,7 +16,15 @@ import time
 import pygame
 import pygame.midi
 import argparse
+import logging
 from typing import Dict, List, Optional
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,  # Set to DEBUG to show all log messages
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 # Import application modules
 from modules.audio_engine import AudioEngine
@@ -106,9 +114,14 @@ class ComprehensivePiano:
         
         # Check for note hit in learning mode
         if self.ui_manager.is_learning_mode() and not self.ui_manager.is_paused():
-            hit_info = self.ui_manager.falling_notes_manager.check_note_hit(note)
-            if hit_info['hit']:
-                self.ui_manager.register_note_hit(note, hit_info['timing_error_ms'])
+            # First check for waiting notes that need to be hit
+            note_hit = self.ui_manager.falling_notes_manager.handle_note_input(note, velocity)
+            
+            # If no waiting notes matched, check for normal note hits
+            if not note_hit:
+                hit_info = self.ui_manager.falling_notes_manager.check_note_hit(note)
+                if hit_info['hit']:
+                    self.ui_manager.register_note_hit(note, hit_info['timing_error_ms'])
     
     def _handle_note_off(self, note):
         """Handle note-off event from input.
@@ -152,6 +165,12 @@ class ComprehensivePiano:
             if self.ui_manager.is_learning_mode():
                 self._prepare_learning_track()
                 self.ui_manager.falling_notes_manager.clear_notes()
+                logging.info(f"Prepared learning track with {len(self.learning_track_notes)} notes")
+                
+            # Make sure we're in learning mode after loading a MIDI file
+            if not self.ui_manager.is_learning_mode():
+                self.ui_manager.toggle_learning_mode()
+                logging.info("Automatically switched to learning mode after loading MIDI file")
                 
             print(f"Loaded MIDI file: {os.path.basename(file_path)}")
             return True
@@ -165,18 +184,32 @@ class ComprehensivePiano:
         if not self.current_midi_data:
             return
             
-        # Extract notes from one or more tracks (typically the melody)
+        # Extract notes from parsed MIDI data
         notes = []
-        for track in self.current_midi_data.get('tracks', []):
-            for note in track.get('notes', []):
-                notes.append({
-                    'note': note['note'],
-                    'start_time': note['start_time'],
-                    'end_time': note['end_time'],
-                    'velocity': note['velocity'],
-                    'duration': note['end_time'] - note['start_time']
-                })
         
+        # The parsed MIDI data has 'notes' as a flat list in format:
+        # [start_time, end_time, note, velocity, track_idx]
+        if 'notes' in self.current_midi_data:
+            for note_data in self.current_midi_data['notes']:
+                start_time, end_time, note_number, velocity, track_idx = note_data
+                
+                # Convert times from seconds to milliseconds for consistent timing
+                start_time_ms = start_time * 1000
+                end_time_ms = end_time * 1000
+                
+                notes.append({
+                    'note': note_number,
+                    'start_time': start_time_ms,
+                    'end_time': end_time_ms,
+                    'velocity': velocity,
+                    'duration': end_time_ms - start_time_ms
+                })
+                
+            # Debug log
+            logging.debug(f"Prepared {len(notes)} notes for learning track")
+        else:
+            logging.warning("No notes found in MIDI data for learning track")
+            
         # Sort notes by start time
         self.learning_track_notes = sorted(notes, key=lambda x: x['start_time'])
         self.learning_track_index = 0
@@ -194,6 +227,7 @@ class ComprehensivePiano:
         if not self.learning_track_notes:
             if self.current_midi_file:
                 self._prepare_learning_track()
+                logging.info(f"Preparing learning track from MIDI file: {os.path.basename(self.current_midi_file)}")
             return
             
         # Update elapsed time
@@ -214,8 +248,45 @@ class ComprehensivePiano:
             # Only add if it's in the future
             if target_time > self.elapsed_time:
                 self.ui_manager.add_falling_note(note, duration, True)
+                logging.debug(f"Added learning note: {note}, duration: {duration}ms")
             
             self.learning_track_index += 1
+    
+    def _handle_key_press(self, key):
+        """Handle special key presses.
+        
+        Args:
+            key: Pygame key constant
+        """
+        # Handle special keys
+        if key == pygame.K_ESCAPE:
+            # ESC: Toggle settings panel
+            if self.ui_manager.settings_ui.is_visible():
+                self.ui_manager.settings_ui.hide()
+            else:
+                self.ui_manager.settings_ui.show()
+                
+        elif key == pygame.K_SPACE:
+            # Space: Toggle pause in learning mode
+            if self.ui_manager.is_learning_mode():
+                self.ui_manager.toggle_pause()
+                
+        # Visualization mode shortcuts in learning mode
+        elif self.ui_manager.is_learning_mode():
+            if key == pygame.K_1:
+                # 1: Switch to falling notes only
+                self.ui_manager.settings_ui.set_setting("learning_visualization", "falling")
+                self.ui_manager.show_popup("Switched to Falling Notes Only")
+                
+            elif key == pygame.K_2:
+                # 2: Switch to highlighted keys only
+                self.ui_manager.settings_ui.set_setting("learning_visualization", "highlight")
+                self.ui_manager.show_popup("Switched to Highlighted Keys Only")
+                
+            elif key == pygame.K_3:
+                # 3: Switch to both visualization modes
+                self.ui_manager.settings_ui.set_setting("learning_visualization", "both")
+                self.ui_manager.show_popup("Switched to Combined Mode (Notes + Highlights)")
     
     def run(self):
         """Run the application main loop."""
@@ -247,6 +318,11 @@ class ComprehensivePiano:
                 
                 # Update learning mode
                 self._update_learning_mode(delta_time)
+                
+                # Handle key presses
+                for event in events:
+                    if event.type == pygame.KEYDOWN:
+                        self._handle_key_press(event.key)
                 
                 # Let UI manager handle events
                 for event in events:

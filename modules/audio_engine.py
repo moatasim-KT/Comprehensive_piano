@@ -86,20 +86,81 @@ class AudioEngine:
             sample_files = [f for f in os.listdir(samples_dir) if f.endswith(('.wav', '.mp3', '.ogg'))]
             
             for filename in sample_files:
-                # Extract note number from filename (e.g., "piano_60.wav" -> 60)
+                # Extract note from filename (e.g., "piano_60.wav" -> 60 or "piano_A#7.wav" -> A#7)
                 try:
-                    note = int(filename.split('_')[1].split('.')[0])
-                    sound = pygame.mixer.Sound(os.path.join(samples_dir, filename))
-                    self.piano_samples[note] = sound
-                    logging.debug(f"Loaded sample: {filename} for note {note}")
-                except (ValueError, IndexError) as e:
-                    logging.warning(f"Could not parse note number from {filename}: {e}")
+                    note_str = filename.split('_')[1].split('.')[0]
+                    
+                    # Try to parse as integer (MIDI note number)
+                    try:
+                        note = int(note_str)
+                    except ValueError:
+                        # Handle named notes (e.g., "A#7")
+                        note = self._note_name_to_midi_number(note_str)
+                        
+                    if note is not None:
+                        sound = pygame.mixer.Sound(os.path.join(samples_dir, filename))
+                        self.piano_samples[note] = sound
+                        logging.debug(f"Loaded sample: {filename} for note {note}")
+                    else:
+                        logging.warning(f"Could not parse note from {filename}: Invalid note name")
+                        
+                except (IndexError) as e:
+                    logging.warning(f"Could not parse filename {filename}: {e}")
             
             logging.info(f"Loaded {len(self.piano_samples)} piano samples")
         except Exception as e:
             logging.error(f"Error loading samples: {e}")
         
         self.samples_loaded = True
+    
+    def _note_name_to_midi_number(self, note_name):
+        """Convert a note name (e.g., 'C4', 'A#5') to MIDI note number.
+        
+        Args:
+            note_name (str): Note name in scientific pitch notation
+            
+        Returns:
+            int: MIDI note number or None if invalid
+        """
+        # Define note name to semitone mapping
+        note_to_semitone = {
+            'C': 0, 'C#': 1, 'Db': 1, 
+            'D': 2, 'D#': 3, 'Eb': 3,
+            'E': 4, 
+            'F': 5, 'F#': 6, 'Gb': 6,
+            'G': 7, 'G#': 8, 'Ab': 8,
+            'A': 9, 'A#': 10, 'Bb': 10,
+            'B': 11
+        }
+        
+        # Handle different note formats
+        if len(note_name) < 2:
+            return None
+            
+        # Check if the last character is a digit (octave number)
+        if not note_name[-1].isdigit():
+            return None
+            
+        # Get octave number
+        try:
+            octave = int(note_name[-1])
+        except ValueError:
+            return None
+            
+        # Get note name (everything except last character)
+        note = note_name[:-1]
+        
+        # Look up semitone value
+        if note not in note_to_semitone:
+            return None
+            
+        semitone = note_to_semitone[note]
+        
+        # Calculate MIDI note number (middle C/C4 is MIDI note 60)
+        # C0 is MIDI note 12
+        midi_number = 12 + (octave * 12) + semitone
+        
+        return midi_number
     
     def generate_synth_sounds(self, first_note=21, last_note=108):
         """Generate synthesized sounds for all notes in the range.

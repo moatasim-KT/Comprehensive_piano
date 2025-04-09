@@ -77,7 +77,7 @@ class MIDIParser:
         self.midi_analysis["num_tracks"] = len(midi_file.tracks)
         
         # Track active notes to detect overlaps and chords
-        active_notes = {}  # {(note, track): (start_time, velocity)}
+        active_notes = {}  # {(note, track, channel): (start_time, velocity)}
         
         # Process all tracks
         for track_idx, track in enumerate(midi_file.tracks):
@@ -134,21 +134,62 @@ class MIDIParser:
                 # Handle note on events
                 elif msg.type == 'note_on' and msg.velocity > 0:
                     # Store the start time of the note
-                    active_notes[(msg.note, track_idx)] = (absolute_time_seconds, msg.velocity)
+                    note_key = (msg.note, track_idx, getattr(msg, 'channel', 0))
+                    active_notes[note_key] = (absolute_time_seconds, msg.velocity)
                 
                 # Handle note off events
                 elif msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0):
-                    # Find the matching note on event
-                    if (msg.note, track_idx) in active_notes:
-                        start_time, velocity = active_notes.pop((msg.note, track_idx))
+                    # Try to find the matching note on event
+                    # First check with exact channel match
+                    note_key = (msg.note, track_idx, getattr(msg, 'channel', 0))
+                    
+                    if note_key in active_notes:
+                        start_time, velocity = active_notes.pop(note_key)
                         # Calculate duration and add note to the list
                         duration = absolute_time_seconds - start_time
                         self.midi_analysis["notes"].append(
                             [start_time, absolute_time_seconds, msg.note, velocity, track_idx]
                         )
                     else:
-                        import logging
-                        logging.warning("Unmatched note-off event for note %s on track %s", msg.note, track_idx)
+                        # Try finding a match ignoring channel
+                        alternate_keys = [(key, val) for key, val in active_notes.items() 
+                                         if key[0] == msg.note and key[1] == track_idx]
+                        
+                        if alternate_keys:
+                            # Use the oldest note if multiple matches
+                            alternate_keys.sort(key=lambda x: x[1][0])  # Sort by start time
+                            match_key, (start_time, velocity) = alternate_keys[0]
+                            active_notes.pop(match_key)
+                            
+                            # Calculate duration and add note to the list
+                            duration = absolute_time_seconds - start_time
+                            self.midi_analysis["notes"].append(
+                                [start_time, absolute_time_seconds, msg.note, velocity, track_idx]
+                            )
+                        else:
+                            # As a last resort, check across all tracks (may help with some MIDI files)
+                            cross_track_keys = [(key, val) for key, val in active_notes.items() 
+                                              if key[0] == msg.note]
+                            
+                            if cross_track_keys:
+                                # Use the oldest note if multiple matches
+                                cross_track_keys.sort(key=lambda x: x[1][0])
+                                match_key, (start_time, velocity) = cross_track_keys[0]
+                                active_notes.pop(match_key)
+                                
+                                # When track differs, note this in the logging
+                                source_track = match_key[1]
+                                logging.debug(f"Cross-track note match: note {msg.note} from track {source_track} to {track_idx}")
+                                
+                                # Calculate duration and add note to the list
+                                duration = absolute_time_seconds - start_time
+                                self.midi_analysis["notes"].append(
+                                    [start_time, absolute_time_seconds, msg.note, velocity, source_track]
+                                )
+                            else:
+                                # No match found - this is a rare case that shouldn't normally happen
+                                # Some MIDI files may have orphaned note-off events
+                                logging.debug(f"Unmatched note-off event for note {msg.note} on track {track_idx}")
         
         # Sort notes by start time
         self.midi_analysis["notes"].sort(key=lambda x: x[0])

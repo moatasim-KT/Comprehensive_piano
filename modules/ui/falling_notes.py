@@ -6,6 +6,8 @@ import pygame
 from typing import Dict, List, Tuple, Optional, Any
 import logging
 from utils.helpers import get_note_name, is_black_key
+import random
+import math
 
 # Constants for falling notes
 FALL_SPEED = 200  # pixels per second
@@ -22,7 +24,8 @@ class FallingNote:
         duration_sec: float,
         target_y: int,
         screen_height: int,
-        velocity: int = 127
+        velocity: int = 127,
+        prep_time: float = 3.0
     ):
         """Initialize a falling note.
         
@@ -33,23 +36,29 @@ class FallingNote:
             target_y (int): Y-coordinate of the target line
             screen_height (int): Height of the screen
             velocity (int): MIDI velocity (0-127)
+            prep_time (float): Preparation time before the note starts falling
         """
         self.note = note
         self.start_time_sec = start_time_sec
         self.end_time_sec = start_time_sec + duration_sec
-        self.duration_sec = duration_sec
+        self.duration_sec = max(0.1, duration_sec)  # Ensure minimum height
         self.target_y = target_y
         self.velocity = velocity
+        self.prep_time = prep_time
         
-        # Height is proportional to duration
+        # Height is proportional to duration, with a minimum height
         self.note_height = max(20, self.duration_sec * FALL_SPEED)
-        self.start_y = target_y - (FALL_SPEED * start_time_sec)
+        
+        # Calculate initial position - notes start above the screen and fall down
+        # For debugging, start them visible on screen
+        self.start_y = 100  # Start near the top of the screen
+        self.current_y = self.start_y
         
         # Note states
         self.active = True          # Whether the note is still active
         self.hit = False            # Whether the note was hit correctly
         self.missed = False         # Whether the note was missed
-        self.current_y = self.start_y  # Current Y position
+        self.waiting = False        # Whether the note is waiting at the target line
         self.key_rect = None        # Rectangle of the corresponding piano key
         
         # Performance tracking
@@ -60,6 +69,11 @@ class FallingNote:
         # Visual effects
         self.opacity = 255          # Note opacity (for fade effects)
         self.highlight_frames = 0   # Frames to highlight after being hit
+        
+        # Waiting duration - how long to wait before marking as missed
+        self.waiting_duration = 5.0  # 5 seconds to press the key before marking as missed
+        self.waiting_time = 0       # Current waiting time
+        self.visible = True         # Whether the note is visible on screen
     
     @staticmethod
     def get_note_name(note: int) -> str:
@@ -84,18 +98,15 @@ class FallingNote:
         if self.note in key_rect_map:
             self.key_rect = key_rect_map[self.note]
         
-        # Calculate new y position based on time
-        time_since_start = current_time_sec
-        self.current_y = self.start_y + (FALL_SPEED * time_since_start)
+        # For debugging - make notes visible and fall slowly
+        self.current_y += 2  # Make notes fall at a fixed rate for testing
         
         # Handle note passing target line
-        target_time_ms = self.start_time_sec * 1000
-        current_time_ms = current_time_sec * 1000
-        
-        # Check if note is past due and not hit
-        if current_time_ms > target_time_ms + HIT_WINDOW_MS and not self.hit:
-            self.missed = True
-            self.active = False
+        if self.current_y >= self.target_y and not self.hit and not self.missed:
+            # Note reached the target line without being hit
+            self.waiting = True
+            self.waiting_time = current_time_sec
+            logging.debug(f"Note {self.note} waiting at y={self.current_y}")
         
         # Update highlight effect
         if self.hit and self.highlight_frames > 0:
@@ -108,6 +119,16 @@ class FallingNote:
             # Remove completely faded notes
             if self.opacity <= 0:
                 self.active = False
+                
+        # For debugging - remove notes that fall too far
+        if self.current_y > self.target_y + 300:
+            self.active = False
+        
+        # Check waiting time
+        if self.waiting and current_time_sec - self.waiting_time > self.waiting_duration:
+            self.missed = True
+            self.waiting = False
+            logging.debug(f"Note {self.note} missed after waiting")
     
     def draw(self, screen, colors, font) -> None:
         """Draw the falling note with the label inside.
@@ -117,18 +138,33 @@ class FallingNote:
             colors: Dictionary of colors
             font: Pygame font for the note label
         """
-        if not self.active or not self.key_rect:
+        # Don't draw if not active or not visible
+        if not self.active or not self.visible:
             return
         
-        # Calculate x position based on the piano key
-        note_x = self.key_rect.x
-        note_width = self.key_rect.width
+        # If no key_rect, create a fallback rectangle based on note number
+        if not self.key_rect:
+            # Calculate a basic layout (this is a fallback if the piano key map isn't available)
+            # White keys are 23 pixels wide, black keys are 15 pixels wide
+            key_width = 15 if is_black_key(self.note) else 23
+            # Estimate x position based on the note number (MIDI notes start at 21 for A0)
+            approx_x = 30 + ((self.note - 21) * 14)  # Simple approximation
+            self.key_rect = pygame.Rect(approx_x, self.target_y, key_width, 10)
+            logging.debug(f"Created fallback key_rect for note {self.note} at x={approx_x}")
         
         # Determine color based on state
         if self.hit:
             base_color = colors.get("hit", (100, 255, 100))  # Green for hit notes
         elif self.missed:
             base_color = colors.get("missed", (255, 100, 100))  # Red for missed notes
+        elif self.waiting:
+            # Pulsating yellow for waiting notes
+            pulse_intensity = 0.7 + 0.3 * math.sin(pygame.time.get_ticks() / 200)
+            base_color = (
+                int(255 * pulse_intensity),  # Pulsating red
+                int(255 * pulse_intensity),  # Pulsating green
+                50                           # Constant blue
+            )
         elif is_black_key(self.note):
             base_color = colors.get("black_note", (100, 100, 160))  # Dark blue for black keys
         else:
@@ -138,17 +174,56 @@ class FallingNote:
         color = (*base_color[:3], self.opacity)
         
         # Draw note rectangle
-        note_rect = pygame.Rect(note_x, self.current_y - self.note_height, note_width, self.note_height)
+        note_rect = pygame.Rect(self.key_rect.x, self.current_y - self.note_height, 
+                               self.key_rect.width, self.note_height)
         pygame.draw.rect(screen, color, note_rect, border_radius=3)
-        pygame.draw.rect(screen, (0, 0, 0, self.opacity), note_rect, 1, border_radius=3)
+        
+        # Add glowing border for waiting notes
+        if self.waiting:
+            border_color = (255, 255, 50, self.opacity)  # Bright yellow
+            border_width = 2  # Thicker border
+        else:
+            border_color = (0, 0, 0, self.opacity)
+            border_width = 1
+            
+        pygame.draw.rect(screen, border_color, note_rect, border_width, border_radius=3)
+        
+        # Debug - draw a marker at the target line
+        pygame.draw.rect(screen, (255, 255, 0), 
+                        pygame.Rect(self.key_rect.x, self.target_y - 2, self.key_rect.width, 4))
         
         # Draw label if the note is big enough
         if self.note_height > 30:
             note_name = self.get_note_name(self.note)
             label = font.render(note_name, True, (0, 0, 0))
-            label_x = note_x + (note_width - label.get_width()) // 2
+            label_x = self.key_rect.x + (self.key_rect.width - label.get_width()) // 2
             label_y = self.current_y - self.note_height + 5
             screen.blit(label, (label_x, label_y))
+        
+        # Draw waiting progress bar
+        if self.waiting:
+            # Calculate how much waiting time has elapsed (as a percentage)
+            current_time_sec = pygame.time.get_ticks() / 1000.0
+            wait_progress = min(1.0, (current_time_sec - self.waiting_time) / self.waiting_duration)
+            
+            # Draw background bar
+            bar_height = 5
+            bar_width = self.key_rect.width
+            bar_y = self.target_y + 10
+            
+            # Background (gray)
+            pygame.draw.rect(screen, (80, 80, 80), 
+                            pygame.Rect(self.key_rect.x, bar_y, bar_width, bar_height))
+            
+            # Progress (red to yellow)
+            progress_color = (255, int(255 * (1 - wait_progress)), 0)  # Red → Yellow
+            pygame.draw.rect(screen, progress_color,
+                            pygame.Rect(self.key_rect.x, bar_y, int(bar_width * wait_progress), bar_height))
+            
+            # Add "Press Now!" text
+            press_text = font.render("Press Now!", True, (255, 255, 255))
+            screen.blit(press_text, 
+                       (self.key_rect.x + self.key_rect.width + 5, self.target_y - font.get_height() // 2))
         
         # Draw hit/miss indicator
         if self.hit and self.timing_error_ms is not None:
@@ -163,7 +238,7 @@ class FallingNote:
                 text_color = (255, 255, 50)
 
             timing_label = font.render(text, True, text_color)
-            screen.blit(timing_label, (note_x + note_width + 5, self.target_y))
+            screen.blit(timing_label, (self.key_rect.x + self.key_rect.width + 5, self.target_y))
 
     
     def check_hit(self, played_note: int, play_time_ms: int) -> bool:
@@ -239,6 +314,7 @@ class FallingNotesManager:
         self.font = None
         self.screen = None
         self.piano_display = None
+        self.visualization_mode = "falling"  # Default visualization mode
     
     def initialize(self, screen, piano_display):
         """Initialize with pygame screen and piano display.
@@ -275,7 +351,8 @@ class FallingNotesManager:
                     duration_sec=duration,
                     target_y=self.target_y,
                     screen_height=self.screen_height,
-                    velocity=velocity
+                    velocity=velocity,
+                    prep_time=self.prep_time_sec
                 )
             )
             
@@ -297,6 +374,45 @@ class FallingNotesManager:
                 if note.missed and not note.hit:
                     self.missed_notes += 1
                 self.notes.remove(note)
+    
+    def apply_visualization_mode(self, visualization_mode):
+        """Apply the visualization mode to all notes.
+        
+        Args:
+            visualization_mode (str): Visualization mode ('falling', 'highlight', or 'both')
+        """
+        self.visualization_mode = visualization_mode
+        
+        # Update active notes if needed
+        if visualization_mode == "highlight":
+            # In highlight-only mode, we still process notes but don't show them visually
+            # This makes waiting notes work even without visual falling notes
+            for note in self.notes:
+                note.visible = False
+        else:
+            # In other modes, make all notes visible
+            for note in self.notes:
+                note.visible = True
+    
+    def get_notes_to_highlight(self, current_time_sec):
+        """Get notes that should be highlighted on the keyboard.
+        
+        Args:
+            current_time_sec (float): Current playback time
+            
+        Returns:
+            List[int]: List of MIDI note numbers to highlight
+        """
+        notes_to_highlight = []
+        highlight_window = 0.3  # Highlight notes 300ms before they should be played
+        
+        for note in self.notes:
+            # Highlight notes that are about to be played
+            time_to_play = note.start_time_sec - current_time_sec
+            if 0 <= time_to_play <= highlight_window:
+                notes_to_highlight.append(note.note)
+                
+        return notes_to_highlight
     
     def draw(self, screen):
         """Draw all falling notes and the target line.
@@ -405,3 +521,65 @@ class FallingNotesManager:
         """
         self.screen_height = screen_height
         self.target_y = target_y
+
+    def add_note(self, note, duration_ms, from_learning_track=True):
+        """Add a falling note to be displayed.
+        
+        Args:
+            note (int): MIDI note number
+            duration_ms (float): Note duration in milliseconds
+            from_learning_track (bool): Whether this note is from the learning track
+        """
+        # Calculate when the note should be played (current time + prep time)
+        current_time_sec = pygame.time.get_ticks() / 1000.0
+        start_time_sec = current_time_sec + self.prep_time_sec
+        duration_sec = duration_ms / 1000.0  # Convert ms to seconds
+        
+        # Create and add the falling note
+        self.notes.append(
+            FallingNote(
+                note=note,
+                start_time_sec=start_time_sec,
+                duration_sec=duration_sec,
+                target_y=self.target_y,
+                screen_height=self.screen_height,
+                velocity=100,  # Default velocity
+                prep_time=self.prep_time_sec
+            )
+        )
+        
+        self.total_notes += 1
+        logging.debug(f"Added falling note: {note}, start: {start_time_sec}, duration: {duration_sec}s")
+
+    def handle_note_input(self, note, velocity=127):
+        """Handle user input for a note.
+        
+        Args:
+            note (int): MIDI note number that was pressed
+            velocity (int, optional): MIDI velocity. Defaults to 127.
+            
+        Returns:
+            bool: True if the note was waiting and is now hit, False otherwise
+        """
+        current_time_sec = pygame.time.get_ticks() / 1000.0
+        
+        # Check for waiting notes
+        for falling_note in self.notes:
+            if falling_note.note == note and falling_note.waiting and not falling_note.hit:
+                # Mark the note as hit
+                falling_note.hit = True
+                falling_note.waiting = False
+                falling_note.hit_time_ms = current_time_sec * 1000
+                
+                # Calculate timing accuracy
+                # 100% for perfect timing, down to 0% at the edge of the window
+                target_time_ms = falling_note.start_time_sec * 1000
+                falling_note.timing_error_ms = falling_note.hit_time_ms - target_time_ms
+                
+                # Set highlight effect
+                falling_note.highlight_frames = 10
+                
+                logging.debug(f"Note {note} hit while waiting, timing error: {falling_note.timing_error_ms:.1f}ms")
+                return True
+                
+        return False
