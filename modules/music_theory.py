@@ -148,18 +148,33 @@ class MusicTheory:
             List[int]: List of scale degrees representing the chord progression.
         """
         progressions_by_scale = {
-            "major": [[0, 5, 7, 0], [0, 7, 9, 5], [2, 7, 0]],  # I-IV-V-I, I-V-vi-IV, ii-V-I
-            "natural_minor": [[0, 3, 5, 0], [9, 5, 0, 2], [0, 3, 7, 5]], # i-iv-VI-i, vi-IV-i-ii, i-iv-VII-VI
-            "harmonic_minor": [[0, 3, 5, 0], [9, 5, 0, 8]], # i-iv-VI-I, vi-IV-i-bIII
-            "melodic_minor": [[0, 2, 3, 4], [0, 5, 7, 0]], # i-ii-III-IV, i-VI-V-I (ascending)
-            "dorian": [[0, 3, 7, 9], [0, 2, 3, 7]], # i-iv-VII-i, i-ii-iv-VII
-            "phrygian": [[0, 5, 1, 3], [1, 3, 0, 5]], # i-VI-II-iv, II-iv-i-VI
-            "lydian": [[0, 2, 4, 7], [4, 0, 2, 7]], # I-II-III-V, IV-II-I-V
-            "mixolydian": [[0, 5, 7, 0], [7, 9, 0, 5]], # I-IV-V-I, V-vi-I-IV
+            "major": {
+                "happy": {
+                    "simple": [[0, 5, 7, 0], [0, 7, 9, 5]],  # I-IV-V-I, I-V-vi-IV
+                    "complex": [[2, 7, 0], [0, 5, 9, 7]]  # ii-V-I, I-IV-vi-V
+                },
+                "sad": {
+                    "simple": [[0, 3, 5, 0], [9, 5, 0, 2]],  # i-iv-VI-i, vi-IV-i-ii
+                    "complex": [[0, 3, 7, 5], [0, 5, 7, 0]]  # i-iv-VII-VI, i-IV-V-i
+                }
+            },
+            "natural_minor": {
+                "happy": {
+                    "simple": [[0, 3, 5, 0], [9, 5, 0, 2]],  # i-iv-VI-i, vi-IV-i-ii
+                    "complex": [[0, 3, 7, 5], [0, 5, 7, 0]]  # i-iv-VII-VI, i-IV-V-i
+                },
+                "sad": {
+                    "simple": [[0, 3, 5, 0], [9, 5, 0, 8]],  # i-iv-VI-I, vi-IV-i-bIII
+                    "complex": [[0, 2, 3, 4], [0, 5, 7, 0]]  # i-ii-III-IV, i-VI-V-I
+                }
+            },
+            # Add more scales, moods, and complexities as needed
         }
-        
-        scale_degrees = random.choice(progressions_by_scale.get(scale_type, [[0, 5, 7, 0]])) # Default to major progression
 
+        mood_progressions = progressions_by_scale.get(scale_type, {}).get(mood, {})
+        complexity_progressions = mood_progressions.get(complexity, [[0, 5, 7, 0]])  # Default to major progression
+
+        scale_degrees = random.choice(complexity_progressions)
         # Adjust progression length if needed
         if len(scale_degrees) < length:
             scale_degrees = scale_degrees * (length // len(scale_degrees)) + scale_degrees[:length % len(scale_degrees)]
