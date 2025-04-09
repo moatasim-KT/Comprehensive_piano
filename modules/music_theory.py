@@ -106,6 +106,81 @@ class MusicTheory:
         return chord_notes
     
     @staticmethod
+    def _parse_roman_numeral(numeral: str) -> int:
+        """Convert a Roman numeral to a scale degree (0-based).
+        
+        Args:
+            numeral (str): Roman numeral (e.g., 'I', 'ii', 'V')
+            
+        Returns:
+            int: Scale degree (0-based)
+        """
+        numeral_map = {
+            "I": 0, "i": 0,
+            "II": 2, "ii": 2,
+            "III": 4, "iii": 4,
+            "IV": 5, "iv": 5,
+            "V": 7, "v": 7,
+            "VI": 9, "vi": 9,
+            "VII": 11, "vii": 11
+        }
+        if numeral not in numeral_map:
+            raise ValueError(f"Unrecognized Roman numeral: {numeral}")
+        return numeral_map[numeral]
+    
+    @staticmethod
+    def _get_scale_degrees_from_progression(progression_name: str) -> List[int]:
+        """Extract scale degrees from a progression name.
+        
+        Args:
+            progression_name (str): Name of the progression (e.g., 'I-IV-V')
+            
+        Returns:
+            List[int]: List of scale degrees (0-based)
+        """
+        # Use predefined progression if available
+        if progression_name in MusicTheory.COMMON_PROGRESSIONS:
+            return MusicTheory.COMMON_PROGRESSIONS[progression_name]
+        
+        # Parse progression string (e.g., "I-IV-V" -> [0, 5, 7])
+        try:
+            return [MusicTheory._parse_roman_numeral(numeral) 
+                   for numeral in progression_name.split('-')]
+        except Exception as e:
+            logging.warning(f"Failed to parse progression '{progression_name}': {e}")
+            # Default to I-IV-V progression
+            return MusicTheory.COMMON_PROGRESSIONS["I-IV-V"]
+    
+    @staticmethod
+    def _determine_chord_type(scale_type: str, degree: int) -> str:
+        """Determine the chord type based on scale type and degree.
+        
+        Args:
+            scale_type (str): Type of scale (e.g., 'major', 'natural_minor')
+            degree (int): Scale degree (0-based)
+            
+        Returns:
+            str: Chord type (e.g., 'maj', 'min', 'dim')
+        """
+        if scale_type == "major":
+            if degree in [0, 3, 4]:  # I, IV, V in major
+                return "maj"
+            elif degree in [1, 2, 5]:  # ii, iii, vi in major
+                return "min"
+            elif degree == 6:  # vii in major
+                return "dim"
+        elif scale_type == "natural_minor":
+            if degree in [2, 5, 7]:  # III, VI, VII in minor
+                return "maj"
+            elif degree in [0, 3, 4]:  # i, iv, v in minor
+                return "min"
+            elif degree == 1:  # ii in minor
+                return "dim"
+        
+        # Default to major triad for unknown scale types or degrees
+        return "maj"
+    
+    @staticmethod
     def generate_chord_progression(
         root_note: int, progression_name: str, scale_type: str = "major"
     ) -> List[List[int]]:
@@ -119,67 +194,26 @@ class MusicTheory:
         Returns:
             List[List[int]]: List of chords, each a list of MIDI note numbers
         """
-        if progression_name in MusicTheory.COMMON_PROGRESSIONS:
-            # Use predefined progression
-            scale_degrees = MusicTheory.COMMON_PROGRESSIONS[progression_name]
-        else:
-            # Parse progression string (e.g., "I-IV-V" -> [0, 5, 7])
-            try:
-                scale_degrees = []
-                roman_numerals = progression_name.split('-')
-                for numeral in roman_numerals:
-                    # Convert Roman numeral to scale degree (0-based)
-                    if numeral == "I":
-                        scale_degrees.append(0)
-                    elif numeral == "II" or numeral == "ii":
-                        scale_degrees.append(2)
-                    elif numeral == "III" or numeral == "iii":
-                        scale_degrees.append(4)
-                    elif numeral == "IV" or numeral == "iv":
-                        scale_degrees.append(5)
-                    elif numeral == "V" or numeral == "v":
-                        scale_degrees.append(7)
-                    elif numeral == "VI" or numeral == "vi":
-                        scale_degrees.append(9)
-                    elif numeral == "VII" or numeral == "vii":
-                        scale_degrees.append(11)
-            except Exception as e:
-                logging.warning(f"Failed to parse progression '{progression_name}': {e}")
-                # Default to I-IV-V progression
-                scale_degrees = MusicTheory.COMMON_PROGRESSIONS["I-IV-V"]
-                
+        # Get scale degrees from progression name
+        scale_degrees = MusicTheory._get_scale_degrees_from_progression(progression_name)
+        
         # Generate the full scale
         scale = MusicTheory.generate_scale(root_note, scale_type, octaves=2)
         
         # Create chords for each scale degree
         progression = []
         for degree in scale_degrees:
-            if degree < len(scale):
-                # Use the scale degree as the root note for the chord
-                chord_root = scale[degree]
+            if degree >= len(scale):
+                continue
                 
-                # Determine chord type based on scale degree in major scale
-                # For other scales, this would need to be adjusted
-                if scale_type == "major":
-                    if degree in [0, 3, 4]:  # I, IV, V in major
-                        chord_type = "maj"
-                    elif degree in [1, 2, 5]:  # ii, iii, vi in major
-                        chord_type = "min"
-                    elif degree == 6:  # vii in major
-                        chord_type = "dim"
-                elif scale_type == "natural_minor":
-                    if degree in [2, 5, 7]:  # III, VI, VII in minor
-                        chord_type = "maj"
-                    elif degree in [0, 3, 4]:  # i, iv, v in minor
-                        chord_type = "min"
-                    elif degree == 1:  # ii in minor
-                        chord_type = "dim"
-                else:
-                    # Default to major triad for unknown scale types
-                    chord_type = "maj"
-                
-                # Generate the chord
-                chord = MusicTheory.generate_chord(chord_root, chord_type)
-                progression.append(chord)
+            # Use the scale degree as the root note for the chord
+            chord_root = scale[degree]
+            
+            # Determine chord type based on scale degree and scale type
+            chord_type = MusicTheory._determine_chord_type(scale_type, degree)
+            
+            # Generate the chord and add to progression
+            chord = MusicTheory.generate_chord(chord_root, chord_type)
+            progression.append(chord)
         
         return progression
