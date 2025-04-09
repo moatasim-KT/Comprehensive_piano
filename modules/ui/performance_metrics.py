@@ -185,6 +185,10 @@ class PerformanceMetrics:
             timing_error_ms (float): Timing error in milliseconds
         """
         # Limit the number of points in the graph
+        # The division by 3 derives from our desired point spacing.
+        # It ensures that there are enough timing data points to present a detailed trend
+        # while avoiding overcrowding the graph. Essentially, graph_width // 3 approximates
+        # a balance between detail and readability.
         if len(self.timing_history_points) >= self.graph_width // 3:
             self.timing_history_points.pop(0)
         

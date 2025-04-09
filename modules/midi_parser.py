@@ -146,6 +146,9 @@ class MIDIParser:
                         self.midi_analysis["notes"].append(
                             [start_time, absolute_time_seconds, msg.note, velocity, track_idx]
                         )
+                    else:
+                        import logging
+                        logging.warning("Unmatched note-off event for note %s on track %s", msg.note, track_idx)
         
         # Sort notes by start time
         self.midi_analysis["notes"].sort(key=lambda x: x[0])

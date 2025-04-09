@@ -232,24 +232,24 @@ class PianoVisualizer:
         """Draw octave markers (C notes) on the keyboard."""
         for note in range(self.first_note, self.first_note + self.total_keys):
             # Check if note is a C
-            if note % 12 == 0:  # C notes
-                if note in self.key_rects:
-                    rect = self.key_rects[note]
-                    octave = note // 12 - 1  # Calculate octave (C4 = middle C)
-                    
-                    # Draw octave marker
-                    pygame.draw.rect(
-                        self.screen, 
-                        (200, 200, 200),  # Light gray
-                        (rect.x, rect.y + rect.height, rect.width, 5)
-                    )
-                    
-                    # Draw octave number
-                    text = self.font.render(f"C{octave}", True, (0, 0, 0))
-                    self.screen.blit(
-                        text, 
-                        (rect.x + 2, rect.y + rect.height + 5)
-                    )
+            if note % 12 == 0 and note in self.key_rects:
+                rect = self.key_rects[note]
+                octave = note // 12 - 1  # Calculate octave (C4 = middle C)
+
+                # Draw octave marker
+                pygame.draw.rect(
+                    self.screen, 
+                    (200, 200, 200),  # Light gray
+                    (rect.x, rect.y + rect.height, rect.width, 5)
+                )
+
+                # Draw octave number
+                text = self.font.render(f"C{octave}", True, (0, 0, 0))
+                self.screen.blit(
+                    text, 
+                    (rect.x + 2, rect.y + rect.height + 5)
+                )
+
     
     def set_note_active(self, note, active=True, velocity=127):
         """Set a note as active or inactive.
