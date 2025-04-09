@@ -223,7 +223,7 @@ class MusicTheory:
                     "major": ["maj", "min", "min", "maj", "dom7", "min", "half_dim"],
                     "natural_minor": ["min", "dim", "maj", "min", "min", "maj", "maj"],
                     "harmonic_minor": ["min", "dim7", "aug7", "min", "dom7", "maj", "dim7"],
-                    "melodic_minor": ["maj", "min", "aug", "maj", "dom7", "min", "min"],  # using ascending
+                    "melodic_minor": ["maj", "min", "aug7", "maj", "dom7", "min", "min"],  # using ascending
                     "dorian": ["min7", "min7", "min7", "maj7", "min7", "min7", "min7"],
                     "phrygian": ["min", "dim", "maj", "min", "min", "dim", "min"],
                     "lydian": ["maj7", "maj7", "min7", "aug", "maj", "min7", "min7"],
