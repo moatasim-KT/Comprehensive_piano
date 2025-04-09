@@ -222,7 +222,7 @@ class MusicTheory:
                 chord_type_map = {
                     "major": ["maj", "min", "min", "maj", "dom7", "min", "half_dim"],
                     "natural_minor": ["min", "dim", "maj", "min", "min", "maj", "maj"],
-                    "harmonic_minor": ["min", "dim", "aug", "min", "dom7", "maj", "dim7"],
+                    "harmonic_minor": ["min", "dim7", "aug7", "min", "dom7", "maj", "dim7"],
                     "melodic_minor": ["maj", "min", "aug", "maj", "dom7", "min", "min"],  # using ascending
                     "dorian": ["min7", "min7", "min7", "maj7", "min7", "min7", "min7"],
                     "phrygian": ["min", "dim", "maj", "min", "min", "dim", "min"],
