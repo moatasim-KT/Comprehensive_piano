@@ -124,7 +124,9 @@ class MusicTheory:
             "VI": 9, "vi": 9,
             "VII": 11, "vii": 11
         }
-        return numeral_map.get(numeral, 0)  # Default to tonic if not found
+        if numeral not in numeral_map:
+            raise ValueError(f"Unrecognized Roman numeral: {numeral}")
+        return numeral_map[numeral]
     
     @staticmethod
     def _get_scale_degrees_from_progression(progression_name: str) -> List[int]:
