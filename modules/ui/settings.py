@@ -658,6 +658,12 @@ class SettingsUI:
                 elif control_type == "dropdown" and control["rect"].collidepoint(pos):
                     # Toggle dropdown expansion
                     control["open"] = not control.get("open", False)
+                    
+                    # Close all other dropdowns
+                    for other_key, other_control in self.controls.items():
+                        if other_key != key and other_control.get("type") == "dropdown":
+                            other_control["open"] = False
+                            
                     return True
                     
                 elif control_type == "dropdown" and control.get("open", False):
@@ -699,38 +705,37 @@ class SettingsUI:
                         self.hide()
                     return True
             
-            # If clicked outside any control, but on the panel, eat the event
+            # If clicked outside any control but on the settings panel, consume the event
             if self.panel_rect.collidepoint(pos):
+                # Close all dropdowns if clicked outside them
+                for key, control in self.controls.items():
+                    if control.get("type") == "dropdown":
+                        control["open"] = False
                 return True
                 
-            # If clicked outside the panel, close settings
-            self.active = False
+            # If clicked outside the panel, hide settings
+            self.hide()
             return True
             
-        # Mouse movement with button down
+        # Mouse movement with button down (for dragging sliders)
         elif event.type == pygame.MOUSEMOTION and event.buttons[0]:
             pos = pygame.mouse.get_pos()
             
-            # Update dragging sliders
+            # Update any slider being dragged
             for key, control in self.controls.items():
-                if control["type"] == "slider" and control["dragging"]:
+                if control.get("type") == "slider" and control.get("dragging", False):
                     self._update_slider_value(key, pos[0])
                     return True
-            
-        # Mouse button release
+                    
+        # Mouse button release (stop dragging)
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             # Stop dragging all sliders
             for key, control in self.controls.items():
-                if control["type"] == "slider" and control["dragging"]:
-                    control["dragging"] = False
-                    self._apply_slider_setting(key)
-            
-        # Keypress
-        elif event.type == pygame.KEYDOWN:
-            # ESC to close settings
-            if event.key == pygame.K_ESCAPE:
-                self.active = False
-                return True
+                if control.get("type") == "slider":
+                    if control.get("dragging", False):
+                        control["dragging"] = False
+                        self._apply_slider_setting(key)
+                        return True
         
         return False
     
@@ -742,22 +747,40 @@ class SettingsUI:
             x_pos (int): Mouse X-coordinate
         """
         control = self.controls[key]
-        rect = control["rect"]
         
-        # Clamp position to slider track
-        x_pos = max(rect.x, min(rect.x + rect.width, x_pos))
+        # Calculate new value based on position
+        slider_width = control["rect"].width
+        slider_x = control["rect"].x
         
-        # Calculate value
-        min_value = control["min_value"]
-        max_value = control["max_value"]
-        value_range = max_value - min_value
+        # Clamp position to slider bounds
+        if x_pos < slider_x:
+            x_pos = slider_x
+        elif x_pos > slider_x + slider_width:
+            x_pos = slider_x + slider_width
+            
+        # Calculate value from position
+        value_range = control["max_value"] - control["min_value"]
+        position_ratio = (x_pos - slider_x) / slider_width
+        new_value = control["min_value"] + (position_ratio * value_range)
         
-        normalized_pos = (x_pos - rect.x) / rect.width
-        value = min_value + (normalized_pos * value_range)
+        # Update control value
+        control["value"] = new_value
         
-        # Update control
-        control["value"] = value
-        control["handle_rect"].x = x_pos - control["handle_rect"].width // 2
+        # Handle specific sliders
+        if key == "volume":
+            self.settings["volume"] = new_value
+        elif key == "reverb_amount":
+            self.settings["reverb_amount"] = new_value
+        elif key == "falling_speed":
+            self.settings["falling_speed"] = new_value
+        elif key == "hit_window":
+            self.settings["hit_window"] = new_value
+        elif key == "prep_time":
+            self.settings["prep_time"] = new_value
+            
+        # Notify about changed settings
+        if self.settings_changed_callback:
+            self.settings_changed_callback(self.settings)
     
     def _apply_slider_setting(self, key):
         """Apply a slider setting value.
@@ -780,7 +803,7 @@ class SettingsUI:
             
         # Notify about changed settings
         if self.settings_changed_callback:
-            self.settings_changed_callback()
+            self.settings_changed_callback(self.settings)
     
     def _apply_toggle_setting(self, key):
         """Apply a toggle setting value.
@@ -789,19 +812,20 @@ class SettingsUI:
             key (str): Toggle key
         """
         control = self.controls[key]
+        value = control["value"]
         
         if key == "show_note_names":
-            self.settings["show_note_names"] = control["value"]
+            self.settings["show_note_names"] = value
         elif key == "show_octave_markers":
-            self.settings["show_octave_markers"] = control["value"]
-        elif key == "show_performance_stats":
-            self.settings["show_performance_stats"] = control["value"]
+            self.settings["show_octave_markers"] = value
         elif key == "audio_mode_samples":
-            self.settings["audio_mode"] = "samples" if control["value"] else "synth"
+            self.settings["audio_mode"] = "samples" if value else "synth"
+        elif key == "show_performance_stats":
+            self.settings["show_performance_stats"] = value
             
         # Notify about changed settings
         if self.settings_changed_callback:
-            self.settings_changed_callback()
+            self.settings_changed_callback(self.settings)
     
     def _apply_dropdown_setting(self, key):
         """Apply a dropdown setting value.
@@ -810,6 +834,7 @@ class SettingsUI:
             key (str): Dropdown key
         """
         control = self.controls[key]
+        value = control["value"]
         
         if key == "difficulty":
             self.settings["difficulty"] = control["value"]
@@ -818,7 +843,7 @@ class SettingsUI:
             
         # Notify about changed settings
         if self.settings_changed_callback:
-            self.settings_changed_callback()
+            self.settings_changed_callback(self.settings)
     
     def _handle_button_click(self, key):
         """Handle a button click.
