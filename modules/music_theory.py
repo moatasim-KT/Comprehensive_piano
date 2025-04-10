@@ -114,9 +114,9 @@ class MusicTheory:
                 f"Unknown chord type: {chord_type}. Defaulting to major triad."
             )
             intervals = MusicTheory.CHORD_INTERVALS["maj"]
-
-            num_intervals = len(intervals)
+        
         if inversion > 0:
+            num_intervals = len(intervals)
             if inversion >= num_intervals:
                 logging.warning(
                     f"Inversion number {inversion} too high for chord type {chord_type}. Defaulting to root position."
