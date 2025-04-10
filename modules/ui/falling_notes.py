@@ -336,32 +336,35 @@ class FallingNotesManager:
         # Use current time if play_time_ms is not provided
         if play_time_ms is None:
             play_time_ms = pygame.time.get_ticks()
-        
+
         # Check each falling note for a hit
         for falling_note in self.notes:
             if falling_note.note == note and falling_note.active and not falling_note.hit:
                 # Calculate timing error
                 timing_error_ms = abs(play_time_ms - falling_note.start_time_sec * 1000)
-                
+
                 # Mark as hit if within acceptable timing window
                 if timing_error_ms <= HIT_WINDOW_MS:
-                    falling_note.hit = True
-                    self.hit_notes += 1
-                    
-                    # Update accuracy and average timing error
-                    accuracy = max(0, 1.0 - (timing_error_ms / HIT_WINDOW_MS))
-                    falling_note.accuracy = accuracy
-                    self.accuracy_sum += accuracy
-                    
-                    return {
-                        'hit': True,
-                        'timing_error_ms': timing_error_ms
-                    }
-        
+                    return self._extracted_from_check_note_hit_26(falling_note, timing_error_ms)
         # No hit found
         return {
             'hit': False,
             'timing_error_ms': 0
+        }
+
+    # TODO Rename this here and in `check_note_hit`
+    def _extracted_from_check_note_hit_26(self, falling_note, timing_error_ms):
+        falling_note.hit = True
+        self.hit_notes += 1
+
+        # Update accuracy and average timing error
+        accuracy = max(0, 1.0 - (timing_error_ms / HIT_WINDOW_MS))
+        falling_note.accuracy = accuracy
+        self.accuracy_sum += accuracy
+
+        return {
+            'hit': True,
+            'timing_error_ms': timing_error_ms
         }
 
     def get_performance_stats(self):
@@ -379,21 +382,21 @@ class FallingNotesManager:
             "completion": (self.hit_notes + self.missed_notes) / max(1, self.total_notes) * 100
         }
     
-    def clear_notes(self):
-        """Clear all notes and reset statistics."""
+    def _reset_stats(self):
+        """Reset all statistics and clear notes."""
         self.notes = []
         self.total_notes = 0
         self.hit_notes = 0
         self.missed_notes = 0
         self.accuracy_sum = 0.0
     
+    def clear_notes(self):
+        """Clear all notes and reset statistics."""
+        self._reset_stats()
+    
     def reset(self):
         """Reset the falling notes manager by clearing all active notes."""
-        self.notes = []
-        self.total_notes = 0
-        self.hit_notes = 0
-        self.missed_notes = 0
-        self.accuracy_sum = 0.0
+        self._reset_stats()
         logging.info("FallingNotesManager reset")
     
     def resize(self, screen_height, target_y):

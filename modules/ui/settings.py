@@ -677,11 +677,11 @@ class SettingsUI:
         Args:
             key (str): Dropdown key
         """
-        control = self.controls[key]
-        
         if key == "difficulty":
+            control = self.controls[key]
+
             self.settings["difficulty"] = control["value"]
-            
+
         # Notify about changed settings
         if self.settings_changed_callback:
             self.settings_changed_callback()
