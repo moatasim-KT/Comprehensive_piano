@@ -59,10 +59,8 @@ def load_assets(asset_dir='assets'):
     Returns:
         dict: Dictionary of loaded assets
     """
-    assets = {}
-    
     # Create assets directory if it doesn't exist
     if not os.path.exists(asset_dir):
         os.makedirs(asset_dir)
         
-    return assets
+    return {}
