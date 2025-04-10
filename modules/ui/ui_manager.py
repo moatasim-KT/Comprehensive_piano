@@ -752,6 +752,10 @@ class UIManager:
             logging.info("Switched to learning mode")
         return self.current_mode == "learning"
         
+    def toggle_pause(self):
+        """Toggle pause state - public method to be called from external components."""
+        self._toggle_pause()
+        
     def get_target_line_y(self):
         """Get the y-coordinate of the target line.
         

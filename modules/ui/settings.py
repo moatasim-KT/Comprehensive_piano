@@ -482,10 +482,9 @@ class SettingsUI:
 
                 # If options are tuples (value, display_text), find the display text for the current value
                 for option in control["options"]:
-                    if isinstance(option, tuple) and len(option) == 2:
-                        if option[0] == current_value:
-                            display_text = option[1]
-                            break
+                    if isinstance(option, tuple) and len(option) == 2 and option[0] == current_value:
+                        display_text = option[1]
+                        break
                 
                 # Draw current value
                 value_text = self.font.render(display_text, True, (0, 0, 0))
@@ -731,11 +730,10 @@ class SettingsUI:
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             # Stop dragging all sliders
             for key, control in self.controls.items():
-                if control.get("type") == "slider":
-                    if control.get("dragging", False):
-                        control["dragging"] = False
-                        self._apply_slider_setting(key)
-                        return True
+                if control.get("type") == "slider" and control.get("dragging", False):
+                    control["dragging"] = False
+                    self._apply_slider_setting(key)
+                    return True
         
         return False
     
@@ -833,23 +831,14 @@ class SettingsUI:
         Args:
             key (str): Dropdown key
         """
-<<<<<<< HEAD
         control = self.controls[key]
         value = control["value"]
         
-=======
->>>>>>> New_features
         if key == "difficulty":
-            control = self.controls[key]
-
-            self.settings["difficulty"] = control["value"]
-<<<<<<< HEAD
+            self.settings["difficulty"] = value
         elif key == "learning_visualization":
-            self.settings["learning_visualization"] = control["value"]
+            self.settings["learning_visualization"] = value
             
-=======
-
->>>>>>> New_features
         # Notify about changed settings
         if self.settings_changed_callback:
             self.settings_changed_callback(self.settings)
