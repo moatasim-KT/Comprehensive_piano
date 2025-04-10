@@ -130,33 +130,35 @@ class PianoVisualizer:
         """
         if note < self.first_note or note >= self.first_note + self.total_keys:
             return None
-        
+
         # Count white keys before this note
         white_key_count = len([n for n in range(self.first_note, note + 1) 
                                if not is_black_key(n)])
-                               
-        # Adjust for black keys
+
         if is_black_key(note):
-            # Find previous white key
-            prev_white = note - 1
-            while is_black_key(prev_white) and prev_white >= self.first_note:
-                prev_white -= 1
-            
-            # Get position of previous white key
-            if prev_white < self.first_note:
-                return None
-                
-            prev_pos = self.get_key_position(prev_white)
-            if prev_pos is None:
-                return None
-                
-            # Black key position is offset from the white key
-            return prev_pos + self.white_key_width - (self.black_key_width // 2)
-        else:
-            # Count white keys before this note (excluding this note)
-            white_keys_before = len([n for n in range(self.first_note, note) 
-                                  if not is_black_key(n)])
-            return self.piano_start_x + (white_keys_before * self.white_key_width)
+            return self._extracted_from_get_key_position_20(note)
+        # Count white keys before this note (excluding this note)
+        white_keys_before = len([n for n in range(self.first_note, note) 
+                              if not is_black_key(n)])
+        return self.piano_start_x + (white_keys_before * self.white_key_width)
+
+    # TODO Rename this here and in `get_key_position`
+    def _extracted_from_get_key_position_20(self, note):
+        # Find previous white key
+        prev_white = note - 1
+        while is_black_key(prev_white) and prev_white >= self.first_note:
+            prev_white -= 1
+
+        # Get position of previous white key
+        if prev_white < self.first_note:
+            return None
+
+        prev_pos = self.get_key_position(prev_white)
+        if prev_pos is None:
+            return None
+
+        # Black key position is offset from the white key
+        return prev_pos + self.white_key_width - (self.black_key_width // 2)
     
     def draw_piano(self):
         """Draw the piano keyboard."""
@@ -185,13 +187,13 @@ class PianoVisualizer:
             note (int): MIDI note number
         """
         is_black = is_black_key(note)
-        
+
         # Get key position and dimensions
         if note not in self.key_rects:
             return
-            
+
         rect = self.key_rects[note]
-        
+
         # Determine key color based on state
         if self.active_notes[note] and self.highlighted_notes[note]:
             # Note is both active and highlighted (correct hit)
@@ -208,25 +210,29 @@ class PianoVisualizer:
         else:
             # Default key color
             color = (0, 0, 0) if is_black else (255, 255, 255)
-        
+
         # Draw the key
         pygame.draw.rect(self.screen, color, rect)
-        
+
         # Draw border
         border_color = (100, 100, 100) if is_black else (0, 0, 0)
         pygame.draw.rect(self.screen, border_color, rect, 1)
-        
+
         # Draw note name if enabled
         if self.show_note_names:
-            note_name = get_note_name(note)
-            text_color = (255, 255, 255) if is_black else (0, 0, 0)
-            name_text = self.key_font.render(note_name, True, text_color)
-            
-            # Position text in the lower part of the key
-            text_x = rect.x + (rect.width - name_text.get_width()) // 2
-            text_y = rect.y + rect.height - name_text.get_height() - 5
-            
-            self.screen.blit(name_text, (text_x, text_y))
+            self._extracted_from__draw_key_41(note, is_black, rect)
+
+    # TODO Rename this here and in `_draw_key`
+    def _extracted_from__draw_key_41(self, note, is_black, rect):
+        note_name = get_note_name(note)
+        text_color = (255, 255, 255) if is_black else (0, 0, 0)
+        name_text = self.key_font.render(note_name, True, text_color)
+
+        # Position text in the lower part of the key
+        text_x = rect.x + (rect.width - name_text.get_width()) // 2
+        text_y = rect.y + rect.height - name_text.get_height() - 5
+
+        self.screen.blit(name_text, (text_x, text_y))
     
     def _draw_octave_markers(self):
         """Draw octave markers (C notes) on the keyboard."""
@@ -300,9 +306,11 @@ class PianoVisualizer:
         Returns:
             int or None: MIDI note number or None if no key at position
         """
-        # Check each key rectangle
-        for note, rect in self.key_rects.items():
-            if rect.collidepoint(pos_x, pos_y):
-                return note
-        
-        return None
+        return next(
+            (
+                note
+                for note, rect in self.key_rects.items()
+                if rect.collidepoint(pos_x, pos_y)
+            ),
+            None,
+        )

@@ -70,11 +70,10 @@ class InputHandler:
         """Initialize pygame midi and scan for available devices."""
         pygame.midi.init()
         self.scan_midi_devices()
-        
+
         # Automatically open the first available MIDI input device
         if self.midi_devices:
-            success = self.open_midi_input()
-            if success:
+            if success := self.open_midi_input():
                 logging.info("Automatically opened first available MIDI input device")
             else:
                 logging.warning("Failed to automatically open MIDI input device")
@@ -126,37 +125,40 @@ class InputHandler:
         """
         # Close any existing MIDI input
         self.close_midi_input()
-        
+
         try:
-            # Find the first input device if not specified
-            if device_id is None:
-                for device in self.midi_devices:
-                    if device["input"]:
-                        device_id = device["id"]
-                        break
-            
-            # No device found
-            if device_id is None:
-                logging.warning("No MIDI input devices found")
-                return False
-            
-            # Open the device
-            self.midi_input = pygame.midi.Input(device_id)
-            self.midi_input_id = device_id
-            
-            # Update device status
-            for device in self.midi_devices:
-                if device["id"] == device_id:
-                    device["opened"] = True
-                    logging.info(f"Opened MIDI input device: {device['name']} (id: {device_id})")
-            
-            return True
-            
+            return self._extracted_from_open_midi_input_15(device_id)
         except Exception as e:
             logging.error(f"Error opening MIDI input: {e}")
             self.midi_input = None
             self.midi_input_id = None
             return False
+
+    # TODO Rename this here and in `open_midi_input`
+    def _extracted_from_open_midi_input_15(self, device_id):
+        # Find the first input device if not specified
+        if device_id is None:
+            for device in self.midi_devices:
+                if device["input"]:
+                    device_id = device["id"]
+                    break
+
+        # No device found
+        if device_id is None:
+            logging.warning("No MIDI input devices found")
+            return False
+
+        # Open the device
+        self.midi_input = pygame.midi.Input(device_id)
+        self.midi_input_id = device_id
+
+        # Update device status
+        for device in self.midi_devices:
+            if device["id"] == device_id:
+                device["opened"] = True
+
+        logging.info(f"Opened MIDI input device id: {device_id}")
+        return True
     
     def close_midi_input(self):
         """Close the current MIDI input device."""
@@ -237,7 +239,7 @@ class InputHandler:
         """
         if not self.midi_input:
             return False
-        
+
         # Check if there are any MIDI events
         if self.midi_input.poll():
             # Read all pending MIDI events in bursts
@@ -246,9 +248,6 @@ class InputHandler:
             while self.midi_input.poll():
                 midi_events.extend(self.midi_input.read(event_limit))
             
-            if midi_events:
-                logging.debug(f"Processing {len(midi_events)} MIDI events")
-            
             for event in midi_events:
                 data = event[0]
                 timestamp = event[1]
@@ -256,9 +255,6 @@ class InputHandler:
                 # Parse the MIDI message
                 status = data[0] & 0xF0  # Status byte (top 4 bits)
                 channel = data[0] & 0x0F  # Channel (bottom 4 bits)
-                
-                # Log the MIDI message for debugging
-                logging.debug(f"MIDI message: status={hex(status)}, channel={channel}, data={data}, timestamp={timestamp}")
                 
                 # Note On event (0x90)
                 if status == 0x90 and data[2] > 0:  # Note on with velocity > 0
@@ -275,8 +271,6 @@ class InputHandler:
                 elif status == 0x80 or (status == 0x90 and data[2] == 0):
                     note = data[1]
                     
-                    logging.debug(f"MIDI Note Off: note={note}, channel={channel}")
-                    
                     # Call note_off callback
                     if self.note_off_callback:
                         self.note_off_callback(note)
@@ -285,12 +279,7 @@ class InputHandler:
                 elif status == 0xB0 and self.control_callback:
                     controller = data[1]
                     value = data[2]
-                    logging.debug(f"MIDI Control Change: controller={controller}, value={value}, channel={channel}")
                     self.control_callback('midi_cc', controller, value, channel)
-                
-                # Other MIDI event types
-                else:
-                    logging.debug(f"Unhandled MIDI message type: {hex(status)}")
             
             return True
             

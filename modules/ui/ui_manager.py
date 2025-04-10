@@ -118,7 +118,7 @@ class UIManager:
         button_width = 150
         button_height = 40
         margin = 10
-        
+
         # Top-left menu buttons
         self.buttons = {
             "free_play": {
@@ -137,35 +137,52 @@ class UIManager:
                 "action": self.show_settings
             }
         }
-        
+
         # Learning mode controls (only visible in learning mode)
         learning_button_y = self.height - button_height - margin
-        self.buttons.update({
+        self.buttons |= {
             "start_learning": {
-                "rect": pygame.Rect(margin, learning_button_y, button_width, button_height),
+                "rect": pygame.Rect(
+                    margin, learning_button_y, button_width, button_height
+                ),
                 "text": "Start",
                 "action": self._start_learning_session,
-                "visible_in": ["learning"]
+                "visible_in": ["learning"],
             },
             "pause_learning": {
-                "rect": pygame.Rect(margin*2 + button_width, learning_button_y, button_width, button_height),
+                "rect": pygame.Rect(
+                    margin * 2 + button_width,
+                    learning_button_y,
+                    button_width,
+                    button_height,
+                ),
                 "text": "Pause",
                 "action": self._toggle_pause,
-                "visible_in": ["learning"]
+                "visible_in": ["learning"],
             },
             "reset_learning": {
-                "rect": pygame.Rect(margin*3 + button_width*2, learning_button_y, button_width, button_height),
+                "rect": pygame.Rect(
+                    margin * 3 + button_width * 2,
+                    learning_button_y,
+                    button_width,
+                    button_height,
+                ),
                 "text": "Reset",
                 "action": self._reset_learning_session,
-                "visible_in": ["learning"]
+                "visible_in": ["learning"],
             },
             "load_midi": {
-                "rect": pygame.Rect(margin*4 + button_width*3, learning_button_y, button_width, button_height),
+                "rect": pygame.Rect(
+                    margin * 4 + button_width * 3,
+                    learning_button_y,
+                    button_width,
+                    button_height,
+                ),
                 "text": "Load MIDI",
                 "action": self._load_midi_file,
-                "visible_in": ["learning", "free_play"]
-            }
-        })
+                "visible_in": ["learning", "free_play"],
+            },
+        }
     
     def _load_midi_file(self):
         """Open a dialog to load a MIDI file."""
@@ -270,7 +287,7 @@ class UIManager:
                             self.app._prepare_learning_track()
                             self.show_popup("Learning track prepared", 1000)
                     else:
-                        self.show_popup(f"Error loading MIDI file", 2000)
+                        self.show_popup("Error loading MIDI file", 2000)  # Replaced unnecessary f-string
                 else:
                     self.show_popup("MIDI loading not supported", 2000)
             
@@ -393,9 +410,8 @@ class UIManager:
             bool: True if the event was handled and should not be propagated
         """
         # First check if settings UI is active
-        if self.settings_ui.is_visible():
-            if self.settings_ui.handle_event(event):
-                return True
+        if self.settings_ui.is_visible() and self.settings_ui.handle_event(event):
+            return True
         
         # Window resize
         if event.type == pygame.VIDEORESIZE:
@@ -426,17 +442,18 @@ class UIManager:
             return True
             
         return False
+
+    def _reset_learning_components(self):
+        """Reset learning components."""
+        self.performance_metrics.reset_metrics()
+        self.falling_notes_manager.reset()
         
     def _start_learning_session(self):
         """Start a learning session."""
         if self.current_mode != "learning":
             self.set_mode("learning")
-            
-        self.performance_metrics.reset_metrics()
-        self.falling_notes_manager.reset()
+        self._reset_learning_components()
         self.paused = False
-        
-        # Show temporary message
         self.show_popup("Learning session started")
     
     def _toggle_pause(self):
@@ -456,15 +473,9 @@ class UIManager:
         """Reset the learning session."""
         if self.current_mode != "learning":
             return
-            
-        self.performance_metrics.reset_metrics()
-        self.falling_notes_manager.reset()
+        self._reset_learning_components()
         self.paused = False
-        
-        # Update button text
         self.buttons["pause_learning"]["text"] = "Pause"
-        
-        # Show temporary message
         self.show_popup("Learning session reset")
         
     def show_popup(self, message, duration=1500):
@@ -588,10 +599,7 @@ class UIManager:
                 continue
                 
             # Highlight active mode button
-            if button_key == self.current_mode:
-                color = (100, 100, 250)
-            else:
-                color = (100, 100, 200)
+            color = (100, 100, 250) if button_key == self.current_mode else (100, 100, 200)
                 
             # Draw button
             pygame.draw.rect(self.screen, color, button["rect"])

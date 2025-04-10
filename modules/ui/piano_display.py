@@ -168,14 +168,19 @@ class PianoDisplay:
             if is_black_key(note) and note in self.key_rects and self.key_rects[note].collidepoint(x, y):
                 return note
 
-        
-        # Then check white keys
-        for note in range(self.first_note, self.first_note + self.total_keys):
-            if not is_black_key(note) and note in self.key_rects and self.key_rects[note].collidepoint(x, y):
-                return note
 
-        
-        return None
+        return next(
+            (
+                note
+                for note in range(
+                    self.first_note, self.first_note + self.total_keys
+                )
+                if not is_black_key(note)
+                and note in self.key_rects
+                and self.key_rects[note].collidepoint(x, y)
+            ),
+            None,
+        )
     
     def get_key_rect(self, note):
         """Get the rectangle for a piano key.
@@ -223,7 +228,7 @@ class PianoDisplay:
         """
         rect = self.key_rects[note]
         is_black = is_black_key(note)
-        
+
         # Determine key color based on state
         if self.active_notes[note] and self.highlighted_notes[note]:
             # Correct hit (active and highlighted)
@@ -232,42 +237,25 @@ class PianoDisplay:
             # Just active (being played)
             velocity = self.note_velocities[note]
             brightness = min(255, 100 + int(155 * velocity / 127))
-            
-            if is_black:
-                color = (100, 100, brightness)  # Darker blue for black keys
-            else:
-                color = (180, 180, brightness)  # Blue for white keys
+
+            color = (100, 100, brightness) if is_black else (180, 180, brightness)
         elif self.highlighted_notes[note]:
             # Just highlighted (for learning)
             color = self.highlight_color
         else:
             # Default state
             color = self.black_key_color if is_black else self.white_key_color
-        
+
         # Draw key rectangle
         pygame.draw.rect(self.screen, color, rect)
-        
+
         # Draw border
         border_color = (100, 100, 100) if is_black else (0, 0, 0)
         pygame.draw.rect(self.screen, border_color, rect, 1)
-        
+
         # Draw note name if enabled
         if self.show_note_names and self.key_font:
-            note_name = get_note_name(note)
-            
-            # Text color depends on key color
-            if self.active_notes[note] or self.highlighted_notes[note]:
-                text_color = (0, 0, 0)  # Black text on colored keys
-            else:
-                text_color = (255, 255, 255) if is_black else (0, 0, 0)
-            
-            name_text = self.key_font.render(note_name, True, text_color)
-            
-            # Position text at the bottom of the key
-            text_x = rect.x + (rect.width - name_text.get_width()) // 2
-            text_y = rect.y + rect.height - name_text.get_height() - 5
-            
-            self.screen.blit(name_text, (text_x, text_y))
+            self._draw_note_name(note, rect, is_black)
     
     def _draw_octave_markers(self):
         """Draw markers to indicate octaves (C notes)."""
@@ -283,7 +271,6 @@ class PianoDisplay:
                     rect.x, rect.y + rect.height, 
                     rect.width, marker_height
                 )
-                pygame.draw.rect(self.screen, (200, 200, 200), marker_rect)
                 
                 # Draw octave number below the marker
                 if self.font:
@@ -293,6 +280,21 @@ class PianoDisplay:
                         (rect.x + 2, rect.y + rect.height + marker_height + 2)
                     )
     
+    def _draw_note_name(self, note, rect, is_black):
+        """Draw the note name on a piano key.
+        
+        Args:
+            note (int): MIDI note number
+            rect (pygame.Rect): Rectangle of the key
+            is_black (bool): Whether the key is a black key
+        """
+        note_name = get_note_name(note)
+
+        # Text color depends on key color
+        if self.active_notes[note] or self.highlighted_notes[note]:
+            text_color = (0, 0, 0)  # Black text on colored keys
+        else:
+            text_color = (255, 255, 255) if is_black else (0, 0, 0)
     def clear_active_notes(self):
         """Clear all active notes."""
         self.active_notes = defaultdict(lambda: False)

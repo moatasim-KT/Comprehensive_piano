@@ -151,45 +151,61 @@ class ComprehensivePiano:
         if not os.path.exists(file_path):
             print(f"Error: MIDI file not found: {file_path}")
             return False
-            
+
         try:
-            # Parse the MIDI file
-            self.current_midi_data = self.midi_parser.parse_midi_file(file_path)
-            self.current_midi_file = file_path
-            
-            # Reset playback state
-            self.playback_started = False
-            self.elapsed_time = 0
-            
-            # Reset learning mode if active
-            if self.ui_manager.is_learning_mode():
-                self._prepare_learning_track()
-                self.ui_manager.falling_notes_manager.clear_notes()
-                logging.info(f"Prepared learning track with {len(self.learning_track_notes)} notes")
-                
-            # Make sure we're in learning mode after loading a MIDI file
-            if not self.ui_manager.is_learning_mode():
-                self.ui_manager.toggle_learning_mode()
-                logging.info("Automatically switched to learning mode after loading MIDI file")
-                
-            print(f"Loaded MIDI file: {os.path.basename(file_path)}")
-            return True
-            
+            return self._extracted_from_load_midi_file_16(file_path)
         except Exception as e:
             print(f"Error loading MIDI file: {e}")
             return False
+
+    # TODO Rename this here and in `load_midi_file`
+    def _extracted_from_load_midi_file_16(self, file_path):
+        # Parse the MIDI file
+        self.current_midi_data = self.midi_parser.parse_midi_file(file_path)
+        self.current_midi_file = file_path
+
+        # Reset playback state
+        self.playback_started = False
+        self.elapsed_time = 0
+
+        # Reset learning mode if active
+        if self.ui_manager.is_learning_mode():
+            self._prepare_learning_track()
+            self.ui_manager.falling_notes_manager.clear_notes()
+            logging.info(f"Prepared learning track with {len(self.learning_track_notes)} notes")
+            
+        # Make sure we're in learning mode after loading a MIDI file
+        if not self.ui_manager.is_learning_mode():
+            self.ui_manager.toggle_learning_mode()
+            logging.info("Automatically switched to learning mode after loading MIDI file")
+
+        print(f"Loaded MIDI file: {os.path.basename(file_path)}")
+        return True
     
     def _prepare_learning_track(self):
         """Prepare the learning track from loaded MIDI data."""
         if not self.current_midi_data:
             return
-            
+
         # Extract notes from parsed MIDI data
         notes = []
         
-        # The parsed MIDI data has 'notes' as a flat list in format:
+        # Extract notes from one or more tracks (typically the melody)
+        for track in self.current_midi_data.get('tracks', []):
+            notes.extend(
+                {
+                    'note': note['note'],
+                    'start_time': note['start_time'],
+                    'end_time': note['end_time'],
+                    'velocity': note['velocity'],
+                    'duration': note['end_time'] - note['start_time'],
+                }
+                for note in track.get('notes', [])
+            )
+            
+        # The parsed MIDI data might also have 'notes' as a flat list in format:
         # [start_time, end_time, note, velocity, track_idx]
-        if 'notes' in self.current_midi_data:
+        if 'notes' in self.current_midi_data and not notes:
             for note_data in self.current_midi_data['notes']:
                 start_time, end_time, note_number, velocity, track_idx = note_data
                 
@@ -208,7 +224,7 @@ class ComprehensivePiano:
             # Debug log
             logging.debug(f"Prepared {len(notes)} notes for learning track")
         else:
-            logging.warning("No notes found in MIDI data for learning track")
+            logging.debug(f"Prepared {len(notes)} notes from tracks for learning track")
             
         # Sort notes by start time
         self.learning_track_notes = sorted(notes, key=lambda x: x['start_time'])
@@ -223,30 +239,30 @@ class ComprehensivePiano:
         """
         if not self.ui_manager.is_learning_mode() or self.ui_manager.is_paused():
             return
-            
+
         if not self.learning_track_notes:
             if self.current_midi_file:
                 self._prepare_learning_track()
                 logging.info(f"Preparing learning track from MIDI file: {os.path.basename(self.current_midi_file)}")
             return
-            
+
         # Update elapsed time
         self.elapsed_time += delta_time * 1000  # Convert to ms
-        
+
         # Add new falling notes as needed
         while (self.learning_track_index < len(self.learning_track_notes) and 
                self.learning_track_notes[self.learning_track_index]['start_time'] <= 
                self.elapsed_time + 3000):  # Add notes that will appear in the next 3 seconds
             
             note_data = self.learning_track_notes[self.learning_track_index]
-            note = note_data['note']
-            duration = note_data['duration']
-            
             # Calculate when the note should hit the target line
             target_time = note_data['start_time']
-            
+
             # Only add if it's in the future
             if target_time > self.elapsed_time:
+                note = note_data['note']
+                duration = note_data['duration']
+
                 self.ui_manager.add_falling_note(note, duration, True)
                 logging.debug(f"Added learning note: {note}, duration: {duration}ms")
             

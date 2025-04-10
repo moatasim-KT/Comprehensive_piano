@@ -1,0 +1,8 @@
+{
+    "notebook.defaultFormatter": "GitHub.copilot",
+    "github.copilot.advanced": {},
+    "github.copilot.chat.codesearch.enabled": true,
+    "github.copilot.chat.agent.thinkingTool": true,
+    "editor.defaultFoldingRangeProvider": "GitHub.copilot",
+    "editor.defaultFormatter": "GitHub.copilot"
+}

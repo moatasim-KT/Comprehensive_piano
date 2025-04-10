@@ -833,14 +833,23 @@ class SettingsUI:
         Args:
             key (str): Dropdown key
         """
+<<<<<<< HEAD
         control = self.controls[key]
         value = control["value"]
         
+=======
+>>>>>>> New_features
         if key == "difficulty":
+            control = self.controls[key]
+
             self.settings["difficulty"] = control["value"]
+<<<<<<< HEAD
         elif key == "learning_visualization":
             self.settings["learning_visualization"] = control["value"]
             
+=======
+
+>>>>>>> New_features
         # Notify about changed settings
         if self.settings_changed_callback:
             self.settings_changed_callback(self.settings)
