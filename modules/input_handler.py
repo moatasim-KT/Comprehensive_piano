@@ -106,37 +106,40 @@ class InputHandler:
         """
         # Close any existing MIDI input
         self.close_midi_input()
-        
+
         try:
-            # Find the first input device if not specified
-            if device_id is None:
-                for device in self.midi_devices:
-                    if device["input"]:
-                        device_id = device["id"]
-                        break
-            
-            # No device found
-            if device_id is None:
-                logging.warning("No MIDI input devices found")
-                return False
-            
-            # Open the device
-            self.midi_input = pygame.midi.Input(device_id)
-            self.midi_input_id = device_id
-            
-            # Update device status
-            for device in self.midi_devices:
-                if device["id"] == device_id:
-                    device["opened"] = True
-            
-            logging.info(f"Opened MIDI input device id: {device_id}")
-            return True
-            
+            return self._extracted_from_open_midi_input_15(device_id)
         except Exception as e:
             logging.error(f"Error opening MIDI input: {e}")
             self.midi_input = None
             self.midi_input_id = None
             return False
+
+    # TODO Rename this here and in `open_midi_input`
+    def _extracted_from_open_midi_input_15(self, device_id):
+        # Find the first input device if not specified
+        if device_id is None:
+            for device in self.midi_devices:
+                if device["input"]:
+                    device_id = device["id"]
+                    break
+
+        # No device found
+        if device_id is None:
+            logging.warning("No MIDI input devices found")
+            return False
+
+        # Open the device
+        self.midi_input = pygame.midi.Input(device_id)
+        self.midi_input_id = device_id
+
+        # Update device status
+        for device in self.midi_devices:
+            if device["id"] == device_id:
+                device["opened"] = True
+
+        logging.info(f"Opened MIDI input device id: {device_id}")
+        return True
     
     def close_midi_input(self):
         """Close the current MIDI input device."""
@@ -237,10 +240,10 @@ class InputHandler:
                 # Note On event (0x90)
                 if status == 0x90 and data[2] > 0:  # Note on with velocity > 0
                     note = data[1]
-                    velocity = data[2]
                     
                     # Call note_on callback
                     if self.note_on_callback:
+                        velocity = data[2]
                         self.note_on_callback(note, velocity)
                 
                 # Note Off event (0x80 or 0x90 with velocity=0)

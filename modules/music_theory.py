@@ -207,17 +207,17 @@ class MusicTheory:
         else:
             # Generate algorithmic progression
             scale_degrees = MusicTheory._generate_algorithmic_progression(scale_type, mood, complexity, length)
-        
+
         # Generate the full scale
         scale = MusicTheory.generate_scale(root_note, scale_type, octaves=2)
-        
+
         # Create chords for each scale degree
         progression = []
         for degree in scale_degrees:
             if degree < len(scale):
                 # Use the scale degree as the root note for the chord
                 chord_root = scale[degree]
-                
+
                 # Determine chord type based on scale degree
                 chord_type_map = {
                     "major": ["maj", "min", "min", "maj", "dom7", "min", "half_dim"],
@@ -229,11 +229,32 @@ class MusicTheory:
                     "lydian": ["maj7", "maj7", "min7", "aug", "maj", "min7", "min7"],
                     "mixolydian": ["maj", "min", "dim", "maj", "min", "min", "dom7"]
                 }
-                
+
                 available_chord_types = []
                 if scale_type in chord_type_map and degree < len(chord_type_map[scale_type]):
-                    possible_chords = [chord for chord in chord_type_map[scale_type][degree].split() if chord in ["maj", "min", "dom7", "maj7", "min7", "dim7", "half_dim", "maj9", "min9", "dom9", "maj11", "min11", "dom11", "maj13", "min13", "dom13"]]
-                    if possible_chords:
+                    if possible_chords := [
+                        chord
+                        for chord in chord_type_map[scale_type][degree].split()
+                        if chord
+                        in [
+                            "maj",
+                            "min",
+                            "dom7",
+                            "maj7",
+                            "min7",
+                            "dim7",
+                            "half_dim",
+                            "maj9",
+                            "min9",
+                            "dom9",
+                            "maj11",
+                            "min11",
+                            "dom11",
+                            "maj13",
+                            "min13",
+                            "dom13",
+                        ]
+                    ]:
                         chord_type = possible_chords[0]
                     else:
                         logging.warning(f"No chord mapping for scale type: {scale_type}, degree: {degree}, complexity: medium. Defaulting to major triad.")
@@ -246,7 +267,7 @@ class MusicTheory:
                     chord_type = "maj"
                 elif mood == "sad" and "maj" in chord_type and scale_type == "major":
                     chord_type = "min"  # Only change to minor if scale type is major. Otherwise, keep the chord type
-                    
+
                 # Generate the chord
                 if use_inversions:
                     num_intervals = len(MusicTheory.CHORD_INTERVALS.get(chord_type, [0, 4, 7]))
@@ -255,13 +276,12 @@ class MusicTheory:
                 else:
                     chord = MusicTheory.generate_chord(chord_root, chord_type)
                 progression.append(chord)
-        
-         # Adjust progression length if needed
+
         if len(progression) < length:
             # Repeat the progression to reach the desired length
             progression = (progression * (length // len(progression) + 1))[:length]
         elif len(progression) > length:
             # Truncate the progression to the desired length
             progression = progression[:length]
-        
+
         return progression
